@@ -170,28 +170,28 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-  models:
-    container_name: models
-    platform: linux/amd64
-    build:
-      context: ../backend/models
-    # image: vikrampen/icam-models:latest
-    ports:
-      - "8000:8000"
-    volumes:
-      - model-data:/app/lbnlp/models/pkg
-    networks:
-      - app-network
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8000 || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+  # models:
+  #   container_name: models
+  #   platform: linux/amd64
+  #   # build:
+  #   #   context: ../backend/models
+  #   image: vikrampen/icam-models:latest
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - model-data:/app/lbnlp/models/pkg
+  #   networks:
+  #     - app-network
+  #   healthcheck:
+  #     test: [ "CMD-SHELL", "curl -f http://localhost:8000 || exit 1" ]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 3
   backend:
     container_name: backend
-    build:
-      context: ../backend/server
-    # image: vikrampen/icam-backend:latest
+    # build:
+    #   context: ../backend/server
+    image: vikrampen/icam-backend:latest
     depends_on:
       es01:
         condition: service_healthy
@@ -249,11 +249,11 @@ services:
 
   frontend:
     container_name: frontend
-    build:
-      context: ../frontend/icam-materials-database
-      args:
-        VITE_BACKEND_URL: ${VITE_BACKEND_URL}
-    # image: vikrampen/icam-frontend:latest
+    # build:
+    #   context: ../frontend/icam-materials-database
+    #   args:
+    #     VITE_BACKEND_URL: ${VITE_BACKEND_URL}
+    image: vikrampen/icam-frontend:latest
     depends_on:
       backend:
         condition: service_healthy
