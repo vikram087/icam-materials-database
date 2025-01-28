@@ -170,7 +170,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-
   models:
     container_name: models
     platform: linux/amd64
@@ -188,7 +187,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-
   backend:
     container_name: backend
     build:
@@ -218,7 +216,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-
   api-key-setup:
     container_name: api-key-setup
     image: alpine

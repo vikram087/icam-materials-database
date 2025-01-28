@@ -204,6 +204,8 @@ def findInfo(
             summaries.append(paper_dict["summary"])
             paper_dicts.append(paper_dict)
 
+        logging.info("Fetched papers, starting annotations")
+
         num_batches: int = math.ceil(len(summaries) / batch_size)
 
         all_annotations: list[dict] = []
@@ -281,6 +283,9 @@ def findInfo(
                 logging.error(
                     "Batch did not successfully complete, dropping all batches\nTo upload partial iterations, please enable the --drop-batches flag"
                 )
+                exit()
+            except Exception as e:
+                logging.error(f"Failed to annotate {e}, exiting")
                 exit()
 
             if annotations_response.status_code == 200:

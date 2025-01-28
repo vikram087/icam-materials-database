@@ -7,7 +7,8 @@ This guide details how to set up and run the `add_papers.py` script, which pulls
   - [Clone the Repository](#1-clone-the-repository)
   - [Set up .env file](#2-set-up-env-file)
   - [Install Dependencies](#3-install-dependencies)
-  - [Run the Script](#4-run-the-script)
+  - [Copy ca.crt File](#4-copy-cacrt-file)
+  - [Run the Script](#5-run-the-script)
 - [Usage](#usage)
 - [Troubleshooting](#troubleshooting)
 - [Next Steps](#next-steps)
@@ -52,7 +53,15 @@ Set up a Python virtual environment and install dependencies.
    pip install -r requirements.txt
    ```
 
-### 4. Run the Script
+### 4. Copy ca.crt File
+
+Run the following command to copy the ca.crt file for the script to run properly.
+
+   ```bash
+   docker cp es01:/usr/share/elasticsearch/config/certs/ca/ca.crt ./ca.crt
+   ```
+
+### 5. Run the Script
 
 Run the script to populate the database with papers from the Arxiv API.
 
@@ -61,6 +70,8 @@ Run the script to populate the database with papers from the Arxiv API.
    ```
 
    > **Note**: Run ```python3 add_papers.py --help``` to see help on the usage of the script.
+
+   > **Note**: When the first paper is ready to be annotated, the model will download, this process will take a while
    
    > **Note**: The Arxiv API limits requests to 2000 papers at a time. If you need to pull more than 2000, wait before making additional requests to avoid throttling.
 

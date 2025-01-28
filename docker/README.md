@@ -106,6 +106,7 @@ To stop the container, run:
 
 - **Elasticsearch fails to start**: Ensure your machine has at least 4GB of free memory. You may need to adjust the memory limits in the `.env` file.
 - **Kibana not accessible**: Verify the `KIBANA_PORT` (default is `5601`) is open on your system.
+- NEED TO COPY CA.CRT
 
 ## Next Steps
 
