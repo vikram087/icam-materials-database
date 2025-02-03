@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import math
 import os
@@ -133,6 +134,13 @@ def set_parser(
         action="store_true",
         help="[Optional] Enabling flag tries to restart the 'models' docker container upon connection failure\nDefault: False",
     )
+    parser.add_argument(
+        "-o",
+        "--output",
+        required=False,
+        type=str,
+        help="[Optional] Location of file to output Elasticsearch insert command. Script run with this will not upload any documents and instead append to a file.",
+    )
     parser.add_argument("-v", "--version", action="version", version=program_version)
 
     return parser
@@ -200,6 +208,15 @@ def findInfo(
                 "comments": entry.get("arxiv_comment"),
                 "primary_category": entry.get("arxiv_primary_category").get("term"),
             }
+
+            bad = client.options(ignore_status=[404]).get(
+                index=INDEX, id=paper_dict["id"]
+            )
+            exists = bad.get("found")
+            if exists is True:
+                logging.info("Duplicate paper found")
+                dups += 1
+                continue
 
             summaries.append(paper_dict["summary"])
             paper_dicts.append(paper_dict)
@@ -315,15 +332,6 @@ def findInfo(
             paper_dict["SMT"] = annotation.get("SMT", [])
             paper_dict["SPL"] = annotation.get("SPL", [])
 
-            bad = client.options(ignore_status=[404]).get(
-                index=INDEX, id=paper_dict["id"]
-            )
-            exists = bad.get("found")
-            if exists is True:
-                logging.info("Duplicate paper found")
-                dups += 1
-                continue
-
             paper_list.append(paper_dict)
 
         logging.info(f"Collected papers {start} - {start + amount - dups}")
@@ -367,18 +375,40 @@ def getEmbedding(text: str):  # type: ignore
 def insert_documents(documents: list[dict], index: str):
     logging.info("Starting Insertion")
     operations: list[dict] = []
+    operations_string: str = ""
     for document in documents:
-        operations.append({"create": {"_index": index, "_id": document["id"]}})
-        operations.append(
-            {
-                **document,
-                "summary_embedding": getEmbedding(document["summary"]),
-                "title_embedding": getEmbedding(document["title"]),
-            }
+        summary_embedding = (
+            getEmbedding(document["summary"]).tolist()
+            if output
+            else getEmbedding(document["summary"])
         )
+        title_embedding = (
+            getEmbedding(document["title"]).tolist()
+            if output
+            else getEmbedding(document["title"])
+        )
+        create_action = {"create": {"_index": index, "_id": document["id"]}}
+        document_action = {
+            **document,
+            "summary_embedding": summary_embedding,
+            "title_embedding": title_embedding,
+        }
 
-    logging.info("Successfully Completed Insertion")
-    return client.bulk(operations=operations)
+        if output:
+            operations_string += (
+                f"{json.dumps(create_action)}\n{json.dumps(document_action)}\n"
+            )
+        else:
+            operations.append(create_action)
+            operations.append(document_action)
+
+    if output:
+        with open(output, "a") as file:
+            file.write(operations_string)
+        logging.info("Successfully wrote to file")
+    else:
+        client.bulk(operations=operations)
+        logging.info("Successfully Completed Insertion")
 
 
 def upload_to_es() -> None:
@@ -443,5 +473,6 @@ if __name__ == "__main__":
     drop_batches: bool = args.drop_batches
     restart: bool = args.restart
     flush_all: bool = args.flush_all
+    output: str = args.output
 
     main()
