@@ -27,4 +27,4 @@ RUN /app/venv/bin/cde data download
 COPY . /app/
 
 # Set entrypoint to use virtualenv and run the script
-CMD ["/app/venv/bin/python", "annotate_texts.py"]
+CMD ["/app/venv/bin/gunicorn", "--bind", "0.0.0.0:8000", "annotate_texts:app"]

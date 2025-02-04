@@ -15,5 +15,4 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # Copy the rest of the application files
 COPY . /app/
 
-# Set entrypoint to use virtualenv and run the server
-CMD ["python3", "server.py"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "server:app"]

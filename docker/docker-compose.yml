@@ -173,8 +173,8 @@ services:
   models:
     container_name: models
     platform: linux/amd64
-    # build:
-    #   context: ../backend/models
+    build:
+      context: ../backend/models
     image: vikrampen/icam-models:latest
     ports:
       - "8000:8000"
@@ -189,8 +189,8 @@ services:
       retries: 3
   backend:
     container_name: backend
-    # build:
-    #   context: ../backend/server
+    build:
+      context: ../backend/server
     image: vikrampen/icam-backend:latest
     depends_on:
       es01:
@@ -249,10 +249,10 @@ services:
 
   frontend:
     container_name: frontend
-    # build:
-    #   context: ../frontend/icam-materials-database
-    #   args:
-    #     VITE_BACKEND_URL: ${VITE_BACKEND_URL}
+    build:
+      context: ../frontend/icam-materials-database
+      args:
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL}
     image: vikrampen/icam-frontend:latest
     depends_on:
       backend:
