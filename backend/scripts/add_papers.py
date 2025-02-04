@@ -140,6 +140,12 @@ def set_parser(
         action="store_true",
         help="[Optional] Enabling flag makes sure this script does not connect to Elasticsearch\nDefault: False",
     )
+    parser.add_argument(
+        "--start",
+        required=False,
+        type=int,
+        help="[Optional] Which location in ArXiv to start at\nDefault: Documents in Elasticsearch",
+    )
     parser.add_argument("-v", "--version", action="version", version=program_version)
 
     return parser
@@ -378,6 +384,9 @@ def upload_to_es() -> None:
     else:
         start = 0
 
+    if arxiv_start:
+        start = arxiv_start
+
     for _ in range(iterations):
         docs, ex, interrupted = findInfo(start)
         if len(docs) == 0:
@@ -438,6 +447,7 @@ if __name__ == "__main__":
     flush_all: bool = args.flush_all
     output: str = args.output
     no_es: str = args.no_es
+    arxiv_start: int = args.start
 
     if not no_es:
         client: Elasticsearch = Elasticsearch(
