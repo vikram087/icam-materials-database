@@ -380,12 +380,13 @@ def insert_documents(documents: list[dict], index: str):
 def upload_to_es() -> None:
     if not no_es:
         start: int = client.count(index=INDEX)["count"]
-        logging.info(f"Total documents in DB, start: {start}\n")
     else:
         start = 0
 
     if arxiv_start:
         start = arxiv_start
+
+    logging.info(f"Total documents in DB, start: {start}\n")
 
     for _ in range(iterations):
         docs, ex, interrupted = findInfo(start)
