@@ -6,6 +6,7 @@ venv*
 .ruff_cache
 __pycache__
 output.json
+db_output.json
 
 ## MATSCHOLAR
 *.py[cod]
