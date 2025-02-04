@@ -146,6 +146,14 @@ def set_parser(
         type=int,
         help="[Optional] Which location in ArXiv to start at\nDefault: Documents in Elasticsearch",
     )
+    parser.add_argument(
+        "-e",
+        "--exit",
+        required=False,
+        default=False,
+        action="store_true",
+        help="[Optional] Exits on first ArXiv rate limit\nDefault: False",
+    )
     parser.add_argument("-v", "--version", action="version", version=program_version)
 
     return parser
@@ -181,6 +189,10 @@ def findInfo(
         feed: FeedParserDict = feedparser.parse(content)
 
         if len(feed.entries) == 0:
+            if rate_exit:
+                logging.error("Rate limited, and exit flag enabled, exiting program")
+                exit()
+
             if i == 2:
                 logging.error(
                     "Rate limited three times in a row. Consider increasing wait time or adjusting query."
@@ -449,6 +461,7 @@ if __name__ == "__main__":
     output: str = args.output
     no_es: str = args.no_es
     arxiv_start: int = args.start
+    rate_exit: bool = args.exit
 
     if not no_es:
         client: Elasticsearch = Elasticsearch(
