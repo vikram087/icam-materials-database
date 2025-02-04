@@ -253,7 +253,7 @@ services:
       context: ../frontend/icam-materials-database
       args:
         VITE_BACKEND_URL: ${VITE_BACKEND_URL}
-    image: vikrampen/icam-frontend:latest
+    # image: vikrampen/icam-frontend:latest
     depends_on:
       backend:
         condition: service_healthy
