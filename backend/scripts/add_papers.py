@@ -3,7 +3,6 @@ import json
 import logging
 import math
 import os
-import subprocess
 import time
 import urllib.request as libreq
 from argparse import Namespace
@@ -36,13 +35,12 @@ Created by Vikram Penumarti
 """
 
 load_dotenv()
-API_KEY: str | None = os.getenv("API_KEY")
-ES_URL: str | None = os.getenv("ES_URL")
 LBNLP_URL: str | None = os.getenv("LBNLP_URL")
 DOCKER: str | None = os.getenv("DOCKER")
-INDEX: str = os.getenv("INDEX") or ""
 
-client: Elasticsearch = Elasticsearch(ES_URL, api_key=API_KEY, ca_certs="./ca.crt")
+API_KEY: str | None = os.getenv("API_KEY")
+ES_URL: str | None = os.getenv("ES_URL")
+INDEX: str = os.getenv("INDEX") or ""
 
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
@@ -128,18 +126,19 @@ def set_parser(
         help="[Optional] Enabling flag does not upload an iteration of papers if all the batches do not successfully complete\nDefault: False",
     )
     parser.add_argument(
-        "--restart",
-        required=False,
-        default=False,
-        action="store_true",
-        help="[Optional] Enabling flag tries to restart the 'models' docker container upon connection failure\nDefault: False",
-    )
-    parser.add_argument(
         "-o",
         "--output",
         required=False,
         type=str,
         help="[Optional] Location of file to output Elasticsearch insert command. Script run with this will not upload any documents and instead append to a file.",
+    )
+    parser.add_argument(
+        "-n",
+        "--no-es",
+        required=False,
+        default=False,
+        action="store_true",
+        help="[Optional] Enabling flag makes sure this script does not connect to Elasticsearch\nDefault: False",
     )
     parser.add_argument("-v", "--version", action="version", version=program_version)
 
@@ -209,14 +208,15 @@ def findInfo(
                 "primary_category": entry.get("arxiv_primary_category").get("term"),
             }
 
-            bad = client.options(ignore_status=[404]).get(
-                index=INDEX, id=paper_dict["id"]
-            )
-            exists = bad.get("found")
-            if exists is True:
-                logging.info("Duplicate paper found")
-                dups += 1
-                continue
+            if not no_es:
+                bad = client.options(ignore_status=[404]).get(
+                    index=INDEX, id=paper_dict["id"]
+                )
+                exists = bad.get("found")
+                if exists is True:
+                    logging.info("Duplicate paper found")
+                    dups += 1
+                    continue
 
             summaries.append(paper_dict["summary"])
             paper_dicts.append(paper_dict)
@@ -229,7 +229,6 @@ def findInfo(
         interrupted: bool = False
 
         batch_num: int = 0
-        subprocess_run: bool = False
 
         while batch_num < num_batches:
             batch_start: int = batch_num * batch_size
@@ -244,46 +243,7 @@ def findInfo(
                     json={"docs": batch_summaries},
                     headers={"Content-Type": "application/json"},
                 )
-            except requests.exceptions.ConnectionError:
-                if restart and not subprocess_run:
-                    try:
-                        logging.info("Attempting to restart 'models' docker container")
-                        result = subprocess.run(
-                            [
-                                "docker",
-                                "compose",
-                                "-f",
-                                "../../docker/docker-compose.yml",
-                                "up",
-                                "-d",
-                                "--build",
-                                "models",
-                            ],
-                            capture_output=True,
-                            text=True,
-                            check=True,
-                        )
-
-                        logging.info(result.stdout)
-                        logging.error(result.stderr)
-
-                        subprocess_run = True
-                        logging.info(
-                            "Sleeping for 30s to ensure container restarted successfully"
-                        )
-                        sleep_with_timer(30)
-                        continue
-                    except Exception:
-                        logging.error(
-                            "Subprocess failed to restart docker container, exiting"
-                        )
-                        exit()
-                elif restart and subprocess_run:
-                    logging.error(
-                        "Docker container failed twice in same iteration, exiting"
-                    )
-                    exit()
-
+            except Exception:
                 if not drop_batches and batch_size >= amount:
                     logging.error(
                         "Batch did not successfully complete and current payload is empty, exiting"
@@ -298,7 +258,7 @@ def findInfo(
                     break
 
                 logging.error(
-                    "Batch did not successfully complete, dropping all batches\nTo upload partial iterations, please enable the --drop-batches flag"
+                    "Batch did not successfully complete, dropping all batches\nTo upload partial iterations, please remove the --drop-batches flag"
                 )
                 exit()
             except Exception as e:
@@ -406,14 +366,17 @@ def insert_documents(documents: list[dict], index: str):
         with open(output, "a") as file:
             file.write(operations_string)
         logging.info("Successfully wrote to file")
-    else:
+    elif not no_es:
         client.bulk(operations=operations)
         logging.info("Successfully Completed Insertion")
 
 
 def upload_to_es() -> None:
-    start: int = client.count(index=INDEX)["count"]
-    logging.info(f"Total documents in DB, start: {start}\n")
+    if not no_es:
+        start: int = client.count(index=INDEX)["count"]
+        logging.info(f"Total documents in DB, start: {start}\n")
+    else:
+        start = 0
 
     for _ in range(iterations):
         docs, ex, interrupted = findInfo(start)
@@ -441,7 +404,8 @@ def upload_to_es() -> None:
 
 
 def main() -> None:
-    createNewIndex(False, INDEX)
+    if not no_es:
+        createNewIndex(False, INDEX)
 
     if amount > 2000 or amount < 1 or iterations < 1:
         raise Exception(
@@ -471,8 +435,13 @@ if __name__ == "__main__":
     sleep_after_rate_limit: int = args.sleep_after_rate_limit
     sleep_between_calls: int = args.sleep_between_calls
     drop_batches: bool = args.drop_batches
-    restart: bool = args.restart
     flush_all: bool = args.flush_all
     output: str = args.output
+    no_es: str = args.no_es
+
+    if not no_es:
+        client: Elasticsearch = Elasticsearch(
+            ES_URL, api_key=API_KEY, ca_certs="./ca.crt"
+        )
 
     main()
