@@ -5,7 +5,7 @@ venv*
 .mypy_cache
 .ruff_cache
 __pycache__
-*.ndjson
+*.ndjson.*
 *.json
 chunk_*
 
