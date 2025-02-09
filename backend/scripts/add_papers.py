@@ -40,7 +40,7 @@ DOCKER: str | None = os.getenv("DOCKER")
 
 API_KEY: str | None = os.getenv("API_KEY")
 ES_URL: str | None = os.getenv("ES_URL")
-INDEX: str = os.getenv("INDEX") or ""
+INDEX: str = os.getenv("INDEX", "")
 
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger("sentence_transformers").setLevel(logging.WARNING)

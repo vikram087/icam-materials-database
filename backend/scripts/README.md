@@ -10,6 +10,9 @@ This guide details how to set up and run the `add_papers.py` script, which pulls
   - [Copy ca.crt File](#4-copy-cacrt-file)
   - [Run the Script](#5-run-the-script)
 - [Helper Scripts](#helper-scripts)
+   - [DB to file](#1-db_to_filepy)
+   - [Curl upload](#2-curl_uploadsh)
+   - [Check Position](#3-check_positionpy)
 - [Troubleshooting](#troubleshooting)
 - [Next Steps](#next-steps)
 
@@ -88,7 +91,7 @@ Run the script to create a json file which can be run on using curl bulk request
 
    > **Note**: Run ```python3 add_papers.py --help``` to see help on the usage of the script.
 
-### 2. curl_upload.sh
+### 2. `curl_upload.sh`
 
 Run the script to bulk upload documents to an elasticsearch document from a json.
 
@@ -97,6 +100,16 @@ Run the script to bulk upload documents to an elasticsearch document from a json
    ```
 
    > **Note**: Run ```./curl_upload.sh --help``` to see help on the usage of the script. 
+
+### 3. `check_position.py`
+
+Run the script to check which documents are not in the elasticsearch index but are in arxiv.
+
+   ```bash
+   python3 check_position.py [options]
+   ```
+
+   > **Note**: Run ```python3 check_position.py --help``` to see help on the usage of the script. 
 
 ## Troubleshooting
 
