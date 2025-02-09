@@ -13,7 +13,7 @@ program_usage: str = """
 db_to_file.py [options] -f FILE
 """
 program_description: str = """description:
-This is a python script to destructure an index into a file which can be called to recreate the index
+This is a python script to destructure an index into a file which can be used to recreate the index
 """
 program_epilog: str = """ 
 """

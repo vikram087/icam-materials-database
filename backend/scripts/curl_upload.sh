@@ -21,9 +21,11 @@ DEFAULT_API_KEY="$API_KEY"  # From .env if available
 show_help() {
     echo "Usage: ./script.sh [FILENAME] [API_KEY]"
     echo ""
+    echo "This is a script to upload data from a json file to an elasticsearch index"
+    echo ""
     echo "Arguments:"
-    echo "  FILENAME     (Optional) The JSON file to upload. Default: '$DEFAULT_FILE'."
-    echo "  API_KEY      (Optional) The API key for authentication. Default: Read from .env."
+    echo "  FILENAME     [Optional] The JSON file to upload. Default: '$DEFAULT_FILE'."
+    echo "  API_KEY      [Optional] The API key for authentication. Default: Read from .env."
     echo ""
     echo "Options:"
     echo "  --help       Show this help message and exit."

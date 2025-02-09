@@ -9,7 +9,7 @@ This guide details how to set up and run the `add_papers.py` script, which pulls
   - [Install Dependencies](#3-install-dependencies)
   - [Copy ca.crt File](#4-copy-cacrt-file)
   - [Run the Script](#5-run-the-script)
-- [Usage](#usage)
+- [Helper Scripts](#helper-scripts)
 - [Troubleshooting](#troubleshooting)
 - [Next Steps](#next-steps)
 
@@ -71,9 +71,32 @@ Run the script to populate the database with papers from the Arxiv API.
 
    > **Note**: Run ```python3 add_papers.py --help``` to see help on the usage of the script.
 
-   > **Note**: When the first paper is ready to be annotated, the model will download, this process will take a while
+   > **Note**: The model will take some time to download for the first time, before you can add papers the model must be fully downloaded
    
    > **Note**: The Arxiv API limits requests to 2000 papers at a time. If you need to pull more than 2000, wait before making additional requests to avoid throttling.
+
+
+## Helper Scripts
+
+### 1. `db_to_file.py`
+
+Run the script to create a json file which can be run on using curl bulk requests to recreate the index.
+
+   ```bash
+   python3 db_to_file.py [options]
+   ```
+
+   > **Note**: Run ```python3 add_papers.py --help``` to see help on the usage of the script.
+
+### 2. curl_upload.sh
+
+Run the script to bulk upload documents to an elasticsearch document from a json.
+
+   ```bash
+   ./curl_upload.sh [options]
+   ```
+
+   > **Note**: Run ```./curl_upload.sh --help``` to see help on the usage of the script. 
 
 ## Troubleshooting
 
