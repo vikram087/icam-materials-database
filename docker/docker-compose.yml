@@ -254,10 +254,7 @@ services:
     container_name: frontend
     build:
       context: ../frontend/icam-materials-database
-      args:
-        VITE_BACKEND_URL: ${VITE_BACKEND_URL}
-        VITE_API_KEY: ${SERVER_API_KEY}
-    # image: vikrampen/icam-frontend:latest
+    image: vikrampen/icam-frontend:latest
     depends_on:
       backend:
         condition: service_healthy
@@ -265,6 +262,9 @@ services:
       - "4173:4173"
     networks:
       - app-network
+    environment:
+      VITE_BACKEND_URL: ${VITE_BACKEND_URL}
+      VITE_API_KEY: ${SERVER_API_KEY}
     healthcheck:
       test: [ "CMD-SHELL", "curl -f http://localhost:4173 || exit 1" ]
       interval: 10s

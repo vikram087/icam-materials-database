@@ -12,16 +12,10 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
-ARG VITE_BACKEND_URL
-ENV VITE_BACKEND_URL=${VITE_BACKEND_URL}
-
-ARG VITE_API_KEY
-ENV VITE_API_KEY=${VITE_API_KEY}
-
 # Copy the rest of the application files
 COPY . .
 
-RUN npm run build
+# RUN npm run build
 
 # Start the development server
-CMD ["npm", "run", "preview"]
+CMD ["sh", "-c", "npm run build && npm run preview"]
