@@ -14,8 +14,3 @@ RUN npm install
 
 # Copy the rest of the application files
 COPY . .
-
-# RUN npm run build
-
-# Start the development server
-CMD ["sh", "-c", "npm run build && npm run preview"]

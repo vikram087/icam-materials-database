@@ -70,7 +70,6 @@ def check_api_key(request):
 
     provided_api_key = auth_header.split("Bearer ")[1]
 
-    print(provided_api_key, expected_api_key)
     if provided_api_key != expected_api_key:
         return jsonify({"success": False, "error": "Invalid API key"}), 403
 
