@@ -19,7 +19,12 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 			console.log("Fetching paper");
 			const backend_url = import.meta.env.VITE_BACKEND_URL;
 
-			fetch(`${backend_url}/api/papers/${id}`)
+			fetch(`${backend_url}/api/papers/${id}`, {
+				method: "GET",
+				headers: {
+					Authorization: `Bearer ${import.meta.env.VITE_API_KEY}`,
+				},
+			})
 				.then((response) => response.json())
 				.then((data) => {
 					setPaper(data);

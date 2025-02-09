@@ -15,6 +15,9 @@ RUN npm install
 ARG VITE_BACKEND_URL
 ENV VITE_BACKEND_URL=${VITE_BACKEND_URL}
 
+ARG VITE_API_KEY
+ENV VITE_API_KEY=${VITE_API_KEY}
+
 # Copy the rest of the application files
 COPY . .
 

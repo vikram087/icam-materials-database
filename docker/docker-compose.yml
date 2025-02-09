@@ -180,10 +180,12 @@ services:
       - "8000:8000"
     volumes:
       - model-data:/app/lbnlp/models/pkg
+    environment:
+      - MODELS_API_KEY=${MODELS_API_KEY}
     networks:
       - app-network
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8000 || exit 1" ]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8000/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -209,10 +211,11 @@ services:
       - DOCKER=true
       - INDEX=${INDEX}
       - CERT_PATH=/usr/share/elasticsearch/config/certs/ca/ca.crt
+      - SERVER_API_KEY=${SERVER_API_KEY}
     networks:
       - app-network
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8080 || exit 1" ]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -253,6 +256,7 @@ services:
       context: ../frontend/icam-materials-database
       args:
         VITE_BACKEND_URL: ${VITE_BACKEND_URL}
+        VITE_API_KEY: ${SERVER_API_KEY}
     # image: vikrampen/icam-frontend:latest
     depends_on:
       backend:

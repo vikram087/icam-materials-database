@@ -5,8 +5,9 @@ venv*
 .mypy_cache
 .ruff_cache
 __pycache__
-output.json
-db_output.json
+*.ndjson
+*.json
+chunk_*
 
 ## MATSCHOLAR
 *.py[cod]

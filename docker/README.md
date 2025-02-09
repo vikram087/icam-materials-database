@@ -68,7 +68,15 @@ Create a `.env` file to define environment variables required for the stack conf
 
    # name of index you want to use
    INDEX=name-of-index
+
+   # api key for server
+   SERVER_API_KEY=your-api-key
+
+   # api key for models
+   MODELS_API_KEY=your-api-key
    ```
+
+   > Note: You can use `openssl rand -hex 32` to generate random api keys
 
 ### 3. Install Docker
 

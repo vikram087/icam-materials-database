@@ -38,7 +38,11 @@ Create a `./env/.env` file for the Python Elasticsearch API. Replace `YOUR_API_K
 
    # name of index you want to use in elasticsearch
    INDEX=name-of-index
+
+   SERVER_API_KEY=your-api-key
    ```
+
+   > Note: You can use `openssl rand -hex 32` to generate random api keys
 
 ### 3. Set up Python Environment
 

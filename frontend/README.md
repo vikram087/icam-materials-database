@@ -27,7 +27,12 @@ Create a `.env` file to define environment variables required for the frontend c
    ```ini
    # The url for your backend, will be http://localhost:8080 for dev
    VITE_BACKEND_URL=http://localhost:8080
+
+   # replace with api key
+   VITE_API_KEY=your-api-key
    ```
+
+   > Note: You can use `openssl rand -hex 32` to generate random api keys
 
 ### 3. Install Node Modules
 

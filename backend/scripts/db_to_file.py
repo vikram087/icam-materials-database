@@ -52,9 +52,9 @@ def set_parser(
         "-f",
         "--file",
         required=False,
-        default="db_output.json",
+        default="db_output.ndjson",
         type=str,
-        help="[Optional] File to output the commands to\nDefault: db_output.json",
+        help="[Optional] File to output the commands to\nDefault: db_output.ndjson",
     )
     parser.add_argument("-v", "--version", action="version", version=program_version)
 

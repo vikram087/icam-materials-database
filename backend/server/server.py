@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Collection, Mapping, Sequence
 
 import redis
+import redis.exceptions
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch, NotFoundError
 from flask import Flask, Response, jsonify, request
@@ -16,53 +17,107 @@ API_KEY: str | None = os.getenv("API_KEY")
 ES_URL: str | None = os.getenv("ES_URL")
 DOCKER: str | None = os.getenv("DOCKER")
 INDEX: str | None = os.getenv("INDEX")
-CERT_PATH: str = os.getenv("CERT_PATH") or ""
+CERT_PATH: str = os.getenv("CERT_PATH", "")
 
 client: Elasticsearch = Elasticsearch(ES_URL, api_key=API_KEY, ca_certs=CERT_PATH)
 
 app: Flask = Flask(__name__)
-CORS(app)
+CORS(
+    app,
+    allow_headers=["Content-Type", "Authorization"],
+)
 model: SentenceTransformer = SentenceTransformer("all-MiniLM-L6-v2")
+
+
+@app.before_request
+def require_api_key() -> tuple[Response, int] | None:
+    if request.endpoint == "health":
+        return None
+
+    if request.method == "OPTIONS":
+        return _cors_preflight_response()
+
+    auth_response = check_api_key(request)
+    if auth_response is not None:
+        return auth_response
+
+    return None
+
+
+def _cors_preflight_response():
+    """Handles CORS preflight OPTIONS requests."""
+    response = jsonify({"success": True})
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    response.headers.add("Access-Control-Allow-Headers", "Authorization, Content-Type")
+    return response
+
+
+def check_api_key(request):
+    expected_api_key = os.getenv("SERVER_API_KEY")
+
+    if not expected_api_key:
+        return jsonify(
+            {"success": False, "error": "Missing API_KEY in environment"}
+        ), 404
+
+    auth_header = request.headers.get("Authorization")
+
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify(
+            {"success": False, "error": "Invalid or missing Bearer token"}
+        ), 401
+
+    provided_api_key = auth_header.split("Bearer ")[1]
+
+    print(provided_api_key, expected_api_key)
+    if provided_api_key != expected_api_key:
+        return jsonify({"success": False, "error": "Invalid API key"}), 403
+
+    return None
 
 
 def get_embedding(text: str):  # type: ignore
     return model.encode(text)
 
 
-@app.route("/", methods=["GET"])
-def test() -> tuple[Response, int]:
+@app.route("/health", methods=["GET"])
+def health() -> tuple[Response, int]:
     return jsonify({"message": "Success"}), 200
 
 
 redis_host = "redis" if DOCKER == "true" else "localhost"
-redis_client: Redis = redis.StrictRedis(
-    host=redis_host, port=6379, db=0, decode_responses=True
-)
+try:
+    redis_client: Redis = redis.StrictRedis(
+        host=redis_host, port=6379, db=0, decode_responses=True
+    )
+    redis_client.ping()
+    redis_success = True
+except redis.exceptions.ConnectionError:
+    redis_success = False
 
 
 def get_cached_results(cache_key: str) -> dict | None:
-    cached_data = redis_client.get(cache_key)
-    if cached_data:
-        return json.loads(cached_data)  # type: ignore
+    if redis_success:
+        cached_data = redis_client.get(cache_key)
+        if cached_data:
+            return json.loads(cached_data)  # type: ignore
     return None
 
 
-def cache_results(cache_key: str, data: tuple[list[dict], int, dict, int]) -> None:
-    redis_client.setex(cache_key, 3600, json.dumps(data))
+def cache_results(cache_key: str, data: tuple) -> None:
+    if redis_success:
+        redis_client.setex(cache_key, 3600, json.dumps(data))
 
 
-def make_cache_key(
-    query: str,
-    sorting: str,
-    page: int,
-    num_results: int,
-    term: str,
-    start_date: int,
-    end_date: int,
-    parsed_results: dict,
-) -> str:
-    key: str = f"{query}_{sorting}_{page}_{num_results}_{term}_{start_date}_{end_date}_{parsed_results['must']}_{parsed_results['not']}_{parsed_results['or']}"
-    return key
+def make_cache_key(args: list[str]):
+    def parse(arg: str | list[str]) -> str:
+        if isinstance(arg, list):
+            arg = f"[{','.join(arg)}]"
+
+        return arg
+
+    return "_".join([parse(arg) for arg in args])
 
 
 @app.route("/api/materials/<property>/<value>", methods=["POST"])
@@ -110,13 +165,20 @@ def get_materials(property: str, value: str) -> Response:
     if property not in valid_properties:
         return jsonify(None)
 
-    cache_key = (
-        f"{property}_{value}_{page}_{num_results}_{sorting}_{start_date}_{end_date}"
+    cache_key: str = make_cache_key(
+        [
+            property,
+            value,
+            f"{page}",
+            f"{num_results}",
+            sorting,
+            f"{start_date}",
+            f"{end_date}",
+        ]
     )
-    cached_data = redis_client.get(cache_key)
+    cached_data: dict | None = get_cached_results(cache_key)
     if cached_data:
-        data = json.loads(cached_data)  # type: ignore
-        return jsonify({"papers": data[0], "total": data[1]})
+        return jsonify({"papers": cached_data[0], "total": cached_data[1]})
 
     prop: str = valid_properties[property]
     try:
@@ -146,7 +208,7 @@ def get_materials(property: str, value: str) -> Response:
             and paper["_source"]["date"] < end_date
         ]
 
-        redis_client.setex(cache_key, 3600, json.dumps((papers, total)))
+        cache_results(cache_key, (papers, total))
 
         return jsonify({"papers": papers, "total": total})
 
@@ -216,25 +278,30 @@ def papers(term: str, query: str) -> tuple[Response, int] | Response:
         return jsonify(None)
 
     cache_key: str = make_cache_key(
-        query,
-        sorting,
-        page,
-        num_results,
-        term,
-        start_date,
-        end_date,
-        parsed_input,
+        [
+            query,
+            sorting,
+            f"{page}",
+            f"{num_results}",
+            term,
+            f"{start_date}",
+            f"{end_date}",
+            parsed_input["must"],
+            parsed_input["not"],
+            parsed_input["or"],
+        ]
     )
-    cached: dict | None = get_cached_results(cache_key)
-    if cached:
-        return jsonify(
-            {
-                "papers": cached[0],
-                "total": cached[1],
-                "accuracy": cached[2],
-                "inflated": cached[3],
-            }
-        )
+    if redis_success:
+        cached: dict | None = get_cached_results(cache_key)
+        if cached:
+            return jsonify(
+                {
+                    "papers": cached[0],
+                    "total": cached[1],
+                    "accuracy": cached[2],
+                    "inflated": cached[3],
+                }
+            )
 
     if sorting == "Most-Recent" or sorting == "Most-Relevant":
         sort: str = "desc"

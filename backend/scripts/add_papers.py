@@ -41,6 +41,7 @@ DOCKER: str | None = os.getenv("DOCKER")
 API_KEY: str | None = os.getenv("API_KEY")
 ES_URL: str | None = os.getenv("ES_URL")
 INDEX: str = os.getenv("INDEX", "")
+MODELS_API_KEY: str | None = os.getenv("MODELS_API_KEY")
 
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
@@ -259,7 +260,10 @@ def findInfo(
                 annotations_response: requests.Response = requests.post(
                     f"{LBNLP_URL}/api/annotate/matbert",
                     json={"docs": batch_summaries},
-                    headers={"Content-Type": "application/json"},
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {MODELS_API_KEY}",
+                    },
                 )
             except Exception:
                 if not drop_batches and batch_size >= amount:
@@ -400,7 +404,7 @@ def upload_to_es() -> None:
 
     logging.info(f"Total documents in DB, start: {start}\n")
 
-    for _ in range(iterations):
+    for i in range(iterations):
         docs, ex, interrupted = findInfo(start)
         if len(docs) == 0:
             logging.error("No docs to upload, exiting")
@@ -415,6 +419,7 @@ def upload_to_es() -> None:
             logging.info("Database is fully updated, exiting")
             exit()
 
+        logging.info(f"Iteration {i+1}/{iterations} complete")
         logging.info(f"Sleeping for {sleep_between_calls} seconds")
         sleep_with_timer(sleep_between_calls)
 

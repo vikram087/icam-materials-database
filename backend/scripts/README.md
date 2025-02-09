@@ -44,7 +44,12 @@ Clone the repository containing the script code, then navigate to the `scripts` 
 
     # index you want to use
     INDEX=name-of-index
+
+    # replace with your models api key
+    MODELS_API_KEY=your-api-key
    ```
+
+   > Note: You can use `openssl rand -hex 32` to generate random api keys
 
 ### 3. Install Dependencies
 
