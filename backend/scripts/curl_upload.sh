@@ -11,6 +11,29 @@ else
     echo "Warning: .env file not found in $SCRIPT_DIR"
 fi
 
+show_help() {
+    echo "Usage: $0 [FILE_NAME] [API_KEY]"
+    echo
+    echo "Uploads an NDJSON file in 50MB chunks to Elasticsearch."
+    echo
+    echo "Arguments:"
+    echo "  FILE_NAME   (optional) The NDJSON file to upload (default: output.json)"
+    echo "  API_KEY     (optional) API key for authentication (default: from .env file)"
+    echo
+    echo "Options:"
+    echo "  --help      Show this help message and exit"
+    echo
+    echo "Examples:"
+    echo "  $0 my_data.ndjson    # Upload 'my_data.ndjson' using API_KEY from .env"
+    echo "  $0 my_data.ndjson my_api_key123    # Upload with a specified API key"
+    exit 0
+}
+
+# Check for --help flag
+if [[ "$1" == "--help" ]]; then
+    show_help
+fi
+
 # User inputs (Optional)
 FILE_NAME=${1:-$DEFAULT_FILE}
 API_KEY_INPUT=${2:-$API_KEY}

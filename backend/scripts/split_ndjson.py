@@ -47,6 +47,16 @@ def set_parser(
         default=50,
         help="[Optional] Maximum file size in MB for each chunk.\nDefault: 50 (MB)",
     )
+    parser.add_argument(
+        "-o",
+        "--output-prefix",
+        required=False,
+        type=str,
+        default="chunk_",
+        help="[Optional] Prefix for the generated chunk files.\n"
+        "Output filenames will be '<prefix>0.ndjson', '<prefix>1.ndjson', etc.\n"
+        "Default: 'chunk_'",
+    )
     parser.add_argument("-v", "--version", action="version", version=prog_version)
 
     return parser
@@ -116,7 +126,7 @@ def main() -> None:
     args = parser.parse_args()
 
     input_file: str = args.input_file
-    output_prefix: str = "chunk_"
+    output_prefix: str = args.output_prefix
     max_mb: int = args.max_size
 
     split_bulk_pairs_by_size(input_file, output_prefix, max_mb)
