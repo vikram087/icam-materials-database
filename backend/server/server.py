@@ -1,7 +1,7 @@
 import json
 import os
 from datetime import datetime
-from typing import Collection, Mapping, Sequence
+from typing import Mapping, Sequence
 
 import redis
 import redis.exceptions
@@ -119,8 +119,8 @@ def make_cache_key(args: list[str]):
     return "_".join([parse(arg) for arg in args])
 
 
-@app.route("/api/materials/<property>/<value>", methods=["POST"])
-def get_materials(property: str, value: str) -> Response:
+@app.route("/api/materials", methods=["POST"])
+def get_materials() -> tuple[Response, int]:
     # MAT: material
     # DSC: description of sample
     # SPL: symmetry or phase label
@@ -130,6 +130,7 @@ def get_materials(property: str, value: str) -> Response:
     # APL: application
     try:
         data: dict = request.get_json()
+
         page: int = int(data.get("page", 0))
         num_results: int = int(data.get("results", 0))
         sorting: str = str(data.get("sorting", ""))
@@ -139,17 +140,31 @@ def get_materials(property: str, value: str) -> Response:
         date: str = str(data.get("date", f"00000000-{formatted_date}"))
         start_date: int = int(date.split("-")[0])
         end_date: int = int(date.split("-")[1])
-    except Exception:
-        return jsonify(None)
+
+        searches: list = list(data.get("searches", []))
+    except Exception as e:
+        print(e)
+        return jsonify(None), 500
+
+    if page < 0:
+        print("Page less than 0, returning None")
+        return jsonify(None), 500
+    if num_results < 0 or (
+        num_results != 10
+        and num_results != 20
+        and num_results != 50
+        and num_results != 100
+    ):
+        print("num_results invalid, returning None")
+        return jsonify(None), 500
 
     if sorting == "Most-Recent" or sorting == "Most-Relevant":
         sort: str = "desc"
     elif sorting == "Oldest-First":
         sort = "asc"
     else:
-        return jsonify(None)
-
-    property = property.lower()
+        print("sorting invalid, returning None")
+        return jsonify(None), 500
 
     valid_properties: dict = {
         "material": "MAT",
@@ -161,13 +176,14 @@ def get_materials(property: str, value: str) -> Response:
         "application": "APL",
     }
 
-    if property not in valid_properties:
-        return jsonify(None)
+    for search in searches:
+        if search["field"].lower() not in valid_properties:
+            print("search invalid, returning None")
+            return jsonify(None), 500
 
     cache_key: str = make_cache_key(
         [
-            property,
-            value,
+            json.dumps(searches),
             f"{page}",
             f"{num_results}",
             sorting,
@@ -177,18 +193,52 @@ def get_materials(property: str, value: str) -> Response:
     )
     cached_data: dict | None = get_cached_results(cache_key)
     if cached_data:
-        return jsonify({"papers": cached_data[0], "total": cached_data[1]})
+        return jsonify({"papers": cached_data[0], "total": cached_data[1]}), 200
 
-    prop: str = valid_properties[property]
     try:
-        query: dict = {
-            "bool": {
-                "must": [{"match": {prop: {"query": value, "fuzziness": "AUTO"}}}],
-                "filter": [{"range": {"date": {"gte": start_date, "lte": end_date}}}],
+        must_clause: list[dict] = []
+        not_clause: list[dict] = []
+        or_clause: list[dict] = []
+        query: dict | None = None
+
+        for search in searches:
+            if search["term"] == "all":
+                query = {
+                    "bool": {
+                        "must": [{"match_all": {}}],
+                        "filter": [
+                            {"range": {"date": {"gte": start_date, "lte": end_date}}}
+                        ],
+                    }
+                }
+                break
+
+            match_clause: dict = {
+                "match": {
+                    valid_properties[search["field"].lower()]: {
+                        "query": search["term"],
+                        "fuzziness": "AUTO",
+                    }
+                }
             }
-        }
-        if value == "all":
-            query["bool"]["must"] = {"match_all": {}}
+            if search["operator"] == "" or search["operator"] == "AND":
+                must_clause.append(match_clause)
+            if search["operator"] == "" or search["operator"] == "NOT":
+                not_clause.append(match_clause)
+            if search["operator"] == "" or search["operator"] == "OR":
+                or_clause.append(match_clause)
+
+        if query is None:
+            query = {
+                "bool": {
+                    "must": must_clause,
+                    "should": or_clause,
+                    "must_not": not_clause,
+                    "filter": [
+                        {"range": {"date": {"gte": start_date, "lte": end_date}}}
+                    ],
+                }
+            }
 
         response = client.search(
             index=INDEX,
@@ -197,7 +247,7 @@ def get_materials(property: str, value: str) -> Response:
             from_=(page - 1) * num_results,
             sort=[{"date": {"order": sort}}]
             if (sorting == "Most-Recent" or sorting == "Oldest-First")
-            else None,
+            else [],
         )
         total: int = response["hits"]["total"]["value"]
         papers: list[dict] = [
@@ -209,11 +259,11 @@ def get_materials(property: str, value: str) -> Response:
 
         cache_results(cache_key, (papers, total))
 
-        return jsonify({"papers": papers, "total": total})
+        return jsonify({"papers": papers, "total": total}), 200
 
     except Exception as e:
         print(e)
-        return jsonify(None)
+        return jsonify(None), 500
 
 
 # cache.clear()
@@ -234,60 +284,46 @@ def get_paper(paper_id: str) -> tuple[Response, int] | Response:
 # fuzzy search for category, authors
 # vector-based search for title, summary
 # /api/papers
-@app.route("/api/papers/<term>/<query>", methods=["POST"])
-def papers(term: str, query: str) -> tuple[Response, int] | Response:
+@app.route("/api/papers", methods=["POST"])
+def papers() -> tuple[Response, int]:
     try:
         data: dict = request.get_json()
         page: int = int(data.get("page", 0))
         num_results: int = int(data.get("results", 0))
         sorting: str = str(data.get("sorting", ""))
-        parsed_input: dict = dict(data.get("parsedInput", []))
-
-        must_v: list[str] = parsed_input["must"]
-        or_v: list[str] = parsed_input["or"]
-        not_v: list[str] = parsed_input["not"]
 
         today: datetime = datetime.today()
         formatted_date: str = today.strftime("%Y%m%d")
         date: str = str(data.get("date", f"00000000-{formatted_date}"))
         start_date: int = int(date.split("-")[0])
         end_date: int = int(date.split("-")[1])
-    except Exception:
-        return jsonify(None)
+
+        searches: list[dict] = list(data.get("searches", []))
+
+    except Exception as e:
+        print(e)
+        return jsonify(None), 500
 
     if page < 0:
-        return jsonify(None)
+        print("Pages less than 0, returning None")
+        return jsonify(None), 500
     if num_results < 0 or (
         num_results != 10
         and num_results != 20
         and num_results != 50
         and num_results != 100
     ):
-        return jsonify(None)
-
-    if term == "Abstract":
-        field: str = "summary_embedding"
-    elif term == "Title":
-        field = "title_embedding"
-    elif term == "Category":
-        field = "categories"
-    elif term == "Authors":
-        field = "authors"
-    else:
-        return jsonify(None)
+        print("num_results invalid, returning None")
+        return jsonify(None), 500
 
     cache_key: str = make_cache_key(
         [
-            query,
+            json.dumps(searches),
             sorting,
             f"{page}",
             f"{num_results}",
-            term,
             f"{start_date}",
             f"{end_date}",
-            parsed_input["must"],
-            parsed_input["not"],
-            parsed_input["or"],
         ]
     )
     if redis_success:
@@ -300,147 +336,169 @@ def papers(term: str, query: str) -> tuple[Response, int] | Response:
                     "accuracy": cached[2],
                     "inflated": cached[3],
                 }
-            )
+            ), 200
 
     if sorting == "Most-Recent" or sorting == "Most-Relevant":
         sort: str = "desc"
     elif sorting == "Oldest-First":
         sort = "asc"
     else:
-        return jsonify(None)
+        print("sorting invalid, returning None")
+        return jsonify(None), 500
 
     knn_search: bool = False
 
     try:
         size: int = client.count(index=INDEX)["count"]
-    except NotFoundError:
-        return jsonify(None)
+    except NotFoundError as e:
+        print(e)
+        return jsonify(None), 500
 
     if sorting == "Most-Recent" or sorting == "Oldest-First":
         p_sort: Sequence[Mapping | str] = [{"date": {"order": sort}}, "_score"]
     elif sorting == "Most-Relevant":
         p_sort = [{"_score": {"order": sort}}]
 
-    if query == "all" or field == "summary_embedding" or field == "title_embedding":
-        tag = "summary" if field == "summary_embedding" else "title"
-        must_clause: Collection[Collection] = (
-            [
-                {"match": {tag: {"query": label, "fuzziness": "AUTO"}}}
-                for label in must_v
-            ]
-            if must_v
-            else {"match_all": {}}
-        )
-        should_clause: list[dict] = (
-            [{"match": {tag: {"query": label, "fuzziness": "AUTO"}}} for label in or_v]
-            if or_v
-            else []
-        )
-        must_not_clause: list[dict] = (
-            [{"match": {tag: {"query": label, "fuzziness": "AUTO"}}} for label in not_v]
-            if not_v
-            else []
-        )
-    else:
-        must_clause = [{"match": {field: {"query": query, "fuzziness": "AUTO"}}}]
+    must_clause: list[dict] = []
+    not_clause: list[dict] = []
+    or_clause: list[dict] = []
+    quer: dict | None = None
+    vector_field: str | None = None
+    vector_query: str | None = None
+    all_query: bool | None = None
 
-        if must_v:
-            must_clause.extend(
-                [
-                    {"match": {field: {"query": label, "fuzziness": "AUTO"}}}
-                    for label in must_v
-                ]
-            )
-
-        should_clause = (
-            [
-                {"match": {field: {"query": label, "fuzziness": "AUTO"}}}
-                for label in or_v
-            ]
-            if or_v
-            else []
-        )
-        must_not_clause = (
-            [
-                {"match": {field: {"query": label, "fuzziness": "AUTO"}}}
-                for label in not_v
-            ]
-            if not_v
-            else []
-        )
-
-    quer = {
-        "bool": {
-            "must": must_clause,
-            "should": should_clause,
-            "must_not": must_not_clause,
-            "filter": {
-                "range": {
-                    "date": {
-                        "gte": start_date,
-                        "lte": end_date,
-                    }
+    for search in searches:
+        if search["term"] == "all":
+            all_query = True
+            quer = {
+                "bool": {
+                    "must": [{"match_all": {}}],
+                    "filter": [
+                        {"range": {"date": {"gte": start_date, "lte": end_date}}}
+                    ],
                 }
-            },
+            }
+            break
+
+        if search["isVector"]:
+            if search["field"].lower() == "abstract":
+                vector_field = "summary_embedding"
+            else:
+                vector_field = "title_embedding"
+            vector_query = search["term"].lower()
+
+        if search["field"].lower() == "abstract":
+            search["field"] = "summary"
+        if search["field"].lower() == "category":
+            search["field"] = "categories"
+
+        match_clause: dict = {
+            "match": {
+                search["field"].lower(): {
+                    "query": search["term"],
+                    "fuzziness": "AUTO",
+                }
+            }
         }
+        if search["operator"] == "" or search["operator"] == "AND":
+            must_clause.append(match_clause)
+        if search["operator"] == "" or search["operator"] == "NOT":
+            not_clause.append(match_clause)
+        if search["operator"] == "" or search["operator"] == "OR":
+            or_clause.append(match_clause)
+
+    if quer is None:
+        quer = {
+            "bool": {
+                "must": must_clause,
+                "should": or_clause,
+                "must_not": not_clause,
+                "filter": [{"range": {"date": {"gte": start_date, "lte": end_date}}}],
+            }
+        }
+
+    highlight: dict = {
+        "pre_tags": ["<mark>"],
+        "post_tags": ["</mark>"],
+        "fields": {
+            "summary": {
+                "type": "unified",
+                "fragment_size": 100,
+                "number_of_fragments": 2,
+            },
+            "title": {
+                "type": "unified",
+                "fragment_size": 50,
+                "number_of_fragments": 1,
+            },
+            "authors": {
+                "type": "unified",
+                "fragment_size": 50,
+                "number_of_fragments": 1,
+            },
+        },
     }
 
-    if query == "all" or field == "authors" or field == "categories":
+    if vector_field is None or vector_query is None:
         knn_search = False
         try:
             results = client.search(
                 query=quer,
                 size=num_results,
                 from_=(page - 1) * num_results,
+                highlight=highlight,
                 sort=[{"date": {"order": sort}}]
                 if (sorting == "Most-Recent" or sorting == "Oldest-First")
                 else None,
                 index=INDEX,
             )
-        except Exception:
-            return jsonify(None)
+        except Exception as e:
+            print(e)
+            return jsonify(None), 500
         if results["hits"]["hits"] == []:
-            return jsonify(None)
-
-    elif field == "summary_embedding" or field == "title_embedding":
+            print("No hits")
+            return jsonify(None), 500
+    else:
         if size < num_results:
             size = num_results
         knn_search = True
         try:
             results = client.search(
                 knn={
-                    "field": field,
-                    "query_vector": get_embedding(query),
+                    "field": vector_field,
+                    "query_vector": get_embedding(vector_query),
                     "num_candidates": size if size < 10000 else 10000,
                     "k": num_results,
                 },
                 query=quer,
+                highlight=highlight,
                 from_=0,  # consider changing to (page-1)*num_results
                 size=page * num_results,
                 sort=p_sort,
                 index=INDEX,
             )
-        except Exception:
-            return jsonify(None)
+        except Exception as e:
+            print(e)
+            return jsonify(None), 500
         if results["hits"]["hits"] == []:
-            return jsonify(None)
+            print("No hits")
+            return jsonify(None), 500
 
     hits: dict = results["hits"]["hits"]
     accuracy: dict = {}
 
     total: int = results["hits"]["total"]["value"]
     inflated: int = -1
-    if knn_search:
+    if knn_search and all_query is None:
         try:
-            if query != "all":
-                if field == "summary_embedding":
-                    quer_field = "summary"
-                elif field == "title_embedding":
-                    quer_field = "title"
+            if vector_field == "summary_embedding":
+                quer_field = "summary"
+            elif vector_field == "title_embedding":
+                quer_field = "title"
 
-                quer["bool"]["must"] = [
-                    {"match": {quer_field: {"query": query, "fuzziness": "AUTO"}}}
-                ]
+            quer["bool"]["must"] = [
+                {"match": {quer_field: {"query": vector_query, "fuzziness": "AUTO"}}}
+            ]
             total = client.search(
                 query=quer,
                 size=num_results,
@@ -450,8 +508,9 @@ def papers(term: str, query: str) -> tuple[Response, int] | Response:
                 # sort=[{"date": {"order": sort}}],
                 index=INDEX,
             )["hits"]["total"]["value"]
-        except Exception:
-            return jsonify(None)
+        except Exception as e:
+            print(e)
+            return jsonify(None), 500
 
         if total < 100 and size >= 100:
             inflated = total
@@ -470,7 +529,16 @@ def papers(term: str, query: str) -> tuple[Response, int] | Response:
             if paper.get("_score") is not None:
                 accuracy[source["id"]] = float(str(paper["_score"])[1:])
     else:
-        filtered_papers = [hit["_source"] for hit in hits]
+        filtered_papers = []
+        for hit in hits:
+            source = hit["_source"]
+            highlight = hit.get("highlight", {})
+
+            source["summary"] = highlight.get("summary", source.get("summary"))
+            source["title"] = highlight.get("title", source.get("title"))
+            source["authors"] = highlight.get("authors", source.get("authors"))
+
+            filtered_papers.append(source)
 
     if filtered_papers:
         cache_results(cache_key, (filtered_papers, total, accuracy, inflated))
@@ -482,7 +550,7 @@ def papers(term: str, query: str) -> tuple[Response, int] | Response:
                 "accuracy": accuracy,
                 "inflated": inflated,
             }
-        )
+        ), 200
     else:
         return jsonify({"error": "No results found"}), 404
 

@@ -16,7 +16,6 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 		setHighlightedStars(Array.isArray(storedStars) ? storedStars : []);
 
 		if (!selectedPaper?.id) {
-			console.log("Fetching paper");
 			const backend_url = import.meta.env.VITE_BACKEND_URL;
 
 			fetch(`${backend_url}/api/papers/${id}`, {
@@ -105,18 +104,28 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						>
 							<Content content={paper?.title} />
 						</h3>
-						<img
-							width={20}
-							height={20}
-							src={
-								highlightedStars.some((p) => p.id === paper?.id)
-									? "/filled_star.png"
-									: "/empty_star.png"
-							}
+						<button
 							onClick={() => toggleStar(paper)}
-							className="star-icon"
-							alt="star icon"
-						/>
+							type="button"
+							style={{
+								cursor: "pointer",
+								border: "none",
+								background: "none",
+								padding: 0,
+							}}
+						>
+							<img
+								width={20}
+								height={20}
+								src={
+									highlightedStars.some((p) => p.id === paper?.id)
+										? "/filled_star.png"
+										: "/empty_star.png"
+								}
+								className="star-icon"
+								alt="star icon"
+							/>
+						</button>
 					</div>
 					<p>
 						<strong>Authors:</strong>{" "}
@@ -172,7 +181,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						<strong>Materials:</strong>{" "}
 						{Array.isArray(paper?.MAT) ? (
 							paper?.MAT?.map((item, index) => (
-								<span key={index}>
+								<span key={`${index}_${item}`}>
 									{item}
 									{index < paper?.MAT.length - 1 ? ", " : ""}
 								</span>
@@ -185,7 +194,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						<strong>Descriptions of Sample:</strong>{" "}
 						{Array.isArray(paper?.DSC) ? (
 							paper?.DSC?.map((item, index) => (
-								<span key={index}>
+								<span key={`${index}_${item}`}>
 									{item}
 									{index < paper?.DSC.length - 1 ? ", " : ""}
 								</span>
@@ -198,7 +207,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						<strong>Symmetry or Phase Labels:</strong>{" "}
 						{Array.isArray(paper?.SPL) ? (
 							paper?.SPL?.map((item, index) => (
-								<span key={index}>
+								<span key={`${index}_${item}`}>
 									{item}
 									{index < paper?.SPL.length - 1 ? ", " : ""}
 								</span>
@@ -211,7 +220,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						<strong>Synthesis Methods:</strong>{" "}
 						{Array.isArray(paper?.SMT) ? (
 							paper?.SMT?.map((item, index) => (
-								<span key={index}>
+								<span key={`${index}_${item}`}>
 									{item}
 									{index < paper?.SMT.length - 1 ? ", " : ""}
 								</span>
@@ -224,7 +233,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						<strong>Characterization Methods:</strong>{" "}
 						{Array.isArray(paper?.CMT) ? (
 							paper?.CMT?.map((item, index) => (
-								<span key={index}>
+								<span key={`${index}_${item}`}>
 									{item}
 									{index < paper?.CMT.length - 1 ? ", " : ""}
 								</span>
@@ -236,16 +245,16 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 					<p>
 						<strong>Properties:</strong>{" "}
 						{[
-							...(Array.isArray(paper?.PRO) ? paper?.PRO : []),
-							...(Array.isArray(paper?.PVL) ? paper?.PVL : []),
-							...(Array.isArray(paper?.PUT) ? paper?.PUT : []),
+							...(Array.isArray(paper?.PRO) ? paper.PRO : []),
+							...(Array.isArray(paper?.PVL) ? paper.PVL : []),
+							...(Array.isArray(paper?.PUT) ? paper.PUT : []),
 						].length > 0 ? (
 							[
-								...(Array.isArray(paper?.PRO) ? paper?.PRO : []),
-								...(Array.isArray(paper?.PVL) ? paper?.PVL : []),
-								...(Array.isArray(paper?.PUT) ? paper?.PUT : []),
+								...(Array.isArray(paper?.PRO) ? paper.PRO : []),
+								...(Array.isArray(paper?.PVL) ? paper.PVL : []),
+								...(Array.isArray(paper?.PUT) ? paper.PUT : []),
 							].map((item, index, array) => (
-								<span key={index}>
+								<span key={`${index}_${item}`}>
 									{item}
 									{index < array.length - 1 ? ", " : ""}
 								</span>
@@ -258,7 +267,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						<strong>Applications:</strong>{" "}
 						{Array.isArray(paper?.APL) ? (
 							paper?.APL?.map((item, index) => (
-								<span key={index}>
+								<span key={`${index}_${item}`}>
 									{item}
 									{index < paper?.APL.length - 1 ? ", " : ""}
 								</span>

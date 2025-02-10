@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import "../styles/homepage.css";
 import Search from "../components/search.jsx";
 import NavBar from "../components/navbar.jsx";
-import SearchSyntax from "../components/search-syntax.jsx";
 
 function HomePage() {
 	const currentDate = new Date();
@@ -16,8 +15,20 @@ function HomePage() {
 		if (query === "") {
 			quer = "all";
 		}
+
+		const advStr = encodeURIComponent(
+			JSON.stringify([
+				{
+					term: "all",
+					field: term,
+					isVector: false,
+					operator: "AND",
+				},
+			]),
+		);
+
 		navigate(
-			`${page}?page=1&per_page=20&query=${quer}&sort=Most-Relevant&term=${term}&date=00000000-${now}`,
+			`${page}?page=1&per_page=20&sort=Most-Relevant&date=00000000-${now}&advanced=false&searches=${advStr}`,
 		);
 		window.scrollTo({ top: 0, behavior: "smooth" });
 	};
@@ -27,29 +38,47 @@ function HomePage() {
 			<NavBar />
 			<div className="main">
 				<p className="home-title">ICAM Materials Database</p>
-				<div onClick={() => goToSearch("all", "/papers", "Abstract")}>
+				<button
+					style={{
+						border: "none",
+						background: "none",
+						paddingBottom: "10px",
+					}}
+					type="button"
+					onClick={() => goToSearch("all", "/papers", "Abstract")}
+				>
 					<GoTo />
-				</div>
+				</button>
 				<br />
 				<Search
 					searchParams={{
 						per_page: 20,
 						page: 1,
-						query: "all",
 						sorting: "Most-Relevant",
-						term: "Abstract",
 						date: `00000000-${now}`,
+						searches: [
+							{
+								term: "all",
+								field: "Abstract",
+								isVector: false,
+								operator: "AND",
+							},
+						],
 					}}
 					to="/papers"
+					options={["Abstract", "Title", "Authors", "Category"]}
 				/>
-				<div style={{ marginTop: "-20px" }}>
-					<SearchSyntax />
-				</div>
 
 				<section className="media-section media-container">
 					<div className="media-placeholder">
-						<a
-							style={{ cursor: "pointer" }}
+						<button
+							type="button"
+							style={{
+								cursor: "pointer",
+								border: "none",
+								background: "none",
+								padding: 0,
+							}}
 							onClick={() => goToSearch("all", "/papers", "Abstract")}
 						>
 							<img
@@ -57,9 +86,15 @@ function HomePage() {
 								src="/search-papers.png"
 								className="feature-image"
 							/>
-						</a>
-						<a
-							style={{ cursor: "pointer" }}
+						</button>
+						<button
+							type="button"
+							style={{
+								cursor: "pointer",
+								border: "none",
+								background: "none",
+								padding: 0,
+							}}
 							onClick={() => goToSearch("all", "/properties", "Material")}
 						>
 							<img
@@ -67,7 +102,7 @@ function HomePage() {
 								src="/search-properties.png"
 								className="feature-image"
 							/>
-						</a>
+						</button>
 					</div>
 				</section>
 
@@ -78,9 +113,15 @@ function HomePage() {
 				>
 					<h3>Features</h3>
 					<div className="features-grid">
-						<div
+						<button
+							type="button"
 							className="feature-card"
-							style={{ cursor: "pointer" }}
+							style={{
+								cursor: "pointer",
+								border: "none",
+								background: "none",
+								padding: 0,
+							}}
 							onClick={() => goToSearch("all", "/papers", "Abstract")}
 						>
 							<h4>Search Papers</h4>
@@ -89,10 +130,16 @@ function HomePage() {
 								semantic relevance, offering a more intuitive search experience
 								beyond traditional keyword matching.
 							</p>
-						</div>
-						<div
+						</button>
+						<button
 							className="feature-card"
-							style={{ cursor: "pointer" }}
+							type="button"
+							style={{
+								cursor: "pointer",
+								border: "none",
+								background: "none",
+								padding: 0,
+							}}
 							onClick={() => goToSearch("all", "/properties", "Material")}
 						>
 							<h4>Search Properties</h4>
@@ -102,10 +149,16 @@ function HomePage() {
 								properties, and potential applications for a deeper
 								understanding.
 							</p>
-						</div>
-						<div
+						</button>
+						<button
+							type="button"
 							className="feature-card"
-							style={{ cursor: "pointer" }}
+							style={{
+								cursor: "pointer",
+								border: "none",
+								background: "none",
+								padding: 0,
+							}}
 							onClick={() => {
 								navigate("/favorites");
 								window.scrollTo({ top: 0, behavior: "smooth" });
@@ -117,21 +170,9 @@ function HomePage() {
 								all without the need to sign in—perfect for seamless, on-the-go
 								research.
 							</p>
-						</div>
+						</button>
 					</div>
 				</section>
-
-				{/* <section id="about" className="about-section homepage-container">
-					<h3>About Us</h3>
-					<p>
-						Our mission is to make scientific research more accessible by
-						creating a user-friendly and robust search platform tailored to
-						material science researchers.
-					</p>
-					<div className="media-placeholder">
-						<p>[Insert Team/Platform Overview Image or Video here]</p>
-					</div>
-				</section> */}
 
 				<section id="contact" className="contact-section">
 					<div className="homepage-container text-center">
@@ -182,12 +223,12 @@ function HomePage() {
 
 function GoTo() {
 	return (
-		<button className="learn-more" type="button">
+		<div className="learn-more" type="button">
 			<span className="circle" aria-hidden="true">
 				<span className="icon arrow" />
 			</span>
 			<span className="button-text">Search Papers</span>
-		</button>
+		</div>
 	);
 }
 

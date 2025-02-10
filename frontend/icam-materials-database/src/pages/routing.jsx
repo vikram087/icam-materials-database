@@ -6,6 +6,7 @@ import PaperDetail from "./paper-detail.jsx";
 import Favorites from "./favorites.jsx";
 import About from "./about.jsx";
 import Table from "./properties.jsx";
+import Filters from "../components/filters.jsx";
 
 function App() {
 	const currentDate = new Date();
@@ -14,19 +15,33 @@ function App() {
 	const [searchParams, setSearchParams] = useState({
 		per_page: 20,
 		page: 1,
-		query: "all",
 		sorting: "Most-Relevant",
-		term: "Abstract",
 		date: `00000000-${now}`,
+		advanced: false,
+		searches: [
+			{
+				term: "all",
+				field: "Abstract",
+				isVector: false,
+				operator: "AND",
+			},
+		],
 	});
 
 	const [tableParams, setTableParams] = useState({
 		per_page: 20,
 		page: 1,
-		query: "all",
 		sorting: "Most-Relevant",
-		term: "material",
 		date: `00000000-${now}`,
+		advanced: false,
+		searches: [
+			{
+				term: "all",
+				field: "material",
+				isVector: false,
+				operator: "AND",
+			},
+		],
 	});
 
 	const [prevUrl, setPrevUrl] = useState("");
@@ -69,6 +84,10 @@ function App() {
 							setPaperToUse={setPaperToUse}
 						/>
 					}
+				/>
+				<Route
+					path="/advanced"
+					element={<Filters searchParams={searchParams} />}
 				/>
 			</Routes>
 		</Router>

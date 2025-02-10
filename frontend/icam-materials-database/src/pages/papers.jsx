@@ -4,10 +4,8 @@ import { TailSpin } from "react-loader-spinner";
 import Search from "../components/search.jsx";
 import Content from "../components/mathjax.jsx";
 import Pagination from "../components/pagination.jsx";
-import Filters from "../components/filters.jsx";
 import "../styles/papers.css";
 import NavBar from "../components/navbar.jsx";
-import SearchSyntax from "../components/search-syntax.jsx";
 
 function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 	const location = useLocation();
@@ -35,17 +33,14 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 	const getPapers = (
 		page,
 		results,
-		query,
 		sorting,
 		startTime,
-		term,
 		dateRange,
+		searches,
 	) => {
-		const parsed = parseInput(query);
-
 		const backend_url = import.meta.env.VITE_BACKEND_URL;
 
-		fetch(`${backend_url}/api/papers/${term}/${parsed.search}`, {
+		fetch(`${backend_url}/api/papers`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -56,7 +51,7 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 				results: results,
 				sorting: sorting,
 				date: dateRange,
-				parsedInput: parsed.boolean,
+				searches: searches,
 			}),
 		})
 			.then((response) => response.json())
@@ -86,91 +81,15 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 			});
 	};
 
-	const parseInput = (que) => {
-		const allOccur = (arr, searchString) => {
-			const indices = [];
-			for (let i = 0; i < arr.length; i++) {
-				if (arr[i] === searchString) {
-					indices.push(i);
-				}
-			}
-			return indices;
-		};
-
-		const removeDups = (list) => {
-			return [...new Set(list)];
-		};
-
-		const query = que.toLowerCase();
-		const beforeIndex = query.indexOf("|");
-		let orTerms = [];
-		const andTerms = [];
-		let notTerms = [];
-		let mustTerms = [];
-		const indices = [];
-
-		if (beforeIndex === -1) {
-			return {
-				search: query,
-				boolean: { or: orTerms, not: notTerms, must: mustTerms },
-			};
-		}
-
-		const before = query.substring(0, beforeIndex).trim();
-		const after = query.substring(beforeIndex + 1, query.length).trim();
-		const quer = before.split(" ");
-
-		const or = allOccur(quer, "or");
-		const and = allOccur(quer, "and");
-		const not = allOccur(quer, "not");
-		const must = allOccur(quer, "must");
-
-		if (or !== -1) {
-			for (let i = 0; i < or.length; i++) {
-				orTerms.push(quer[or[i] - 1]);
-				orTerms.push(quer[or[i] + 1]);
-				indices.push(or[i] - 1);
-				indices.push(or[i] + 1);
-			}
-		}
-		if (and !== -1) {
-			for (let i = 0; i < and.length; i++) {
-				andTerms.push(quer[and[i] - 1]);
-				andTerms.push(quer[and[i] + 1]);
-				indices.push(and[i] - 1);
-				indices.push(and[i] + 1);
-			}
-		}
-		if (not !== -1) {
-			for (let i = 0; i < not.length; i++) {
-				notTerms.push(quer[not[i] + 1]);
-				indices.push(not[i] + 1);
-			}
-		}
-		if (must !== -1) {
-			for (let i = 0; i < must.length; i++) {
-				mustTerms.push(quer[must[i] + 1]);
-				indices.push(must[i] + 1);
-			}
-		}
-
-		orTerms = removeDups(orTerms);
-		notTerms = removeDups(notTerms);
-		mustTerms = removeDups(mustTerms.concat(andTerms));
-
-		const boolean = { or: orTerms, not: notTerms, must: mustTerms };
-
-		return { search: after, boolean: boolean };
-	};
-
 	useEffect(() => {
 		const query = new URLSearchParams(location.search);
 		const page = Number(query.get("page")) || searchParams.page;
 		const perPage = Number(query.get("per_page")) || searchParams.per_page;
-		const search = query.get("query") || searchParams.query;
 		const sorting = query.get("sort") || searchParams.sorting;
-		const term = query.get("term") || searchParams.term;
 		const date = query.get("date") || searchParams.date;
+		const searches =
+			JSON.parse(decodeURIComponent(query.get("searches"))) ||
+			searchParams.searches;
 
 		const storedStars =
 			JSON.parse(localStorage.getItem("highlightedStars")) || [];
@@ -179,17 +98,16 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 		setSearchParams({
 			per_page: perPage,
 			page: page,
-			query: search,
 			sorting: sorting,
-			term: term,
 			date: date,
+			searches: searches,
 		});
 
 		const startTime = performance.now();
 
 		setLoading(true);
 
-		getPapers(page, perPage, search, sorting, startTime, term, date);
+		getPapers(page, perPage, sorting, startTime, date, searches);
 	}, [
 		location.search,
 		/*searchParams.page,
@@ -209,22 +127,24 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 			page: page,
 		}));
 
+		const advStr = encodeURIComponent(JSON.stringify(searchParams.searches));
+
 		navigate(
 			`?page=${page}&per_page=${searchParams.per_page}` +
-				`&query=${searchParams.query}&sort=${searchParams.sorting}` +
-				`&term=${searchParams.term}&` +
-				`${searchParams.date}`,
+				`&sort=${searchParams.sorting}` +
+				`&${searchParams.date}&advanced=${searchParams.advanced}&searches=${advStr}`,
 		);
 	};
 
 	const changePaper = (paper) => {
 		const id = paper.id.replace("/-/g", "/");
 
+		const advStr = encodeURIComponent(JSON.stringify(searchParams.searches));
+
 		const papers =
 			`/papers?page=${searchParams.page}&per_page=${searchParams.per_page}` +
-			`&query=${searchParams.query}&sort=${searchParams.sorting}` +
-			`&term=${searchParams.term}&` +
-			`${searchParams.date}`;
+			`&sort=${searchParams.sorting}` +
+			`&${searchParams.date}&${advStr}`;
 
 		setPrevUrl(papers);
 		setPaperToUse(paper);
@@ -299,7 +219,7 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 									? "Results are Limited to the first 10,000 matching documents"
 									: ""}
 							</p>
-							<b>Displaying Results for: "{searchParams.query}"</b>
+							{/* <b>Displaying Results for: "{searchParams.query}"</b> */}
 							{inflated !== -1 && (
 								<p>
 									Not many relevant papers, expanding from {inflated} to 100
@@ -314,7 +234,7 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 								className={
 									index === expandedIndex ? "expanded-container" : "container"
 								}
-								key={`${paper.id}_papers`}
+								key={`${paper.id}_papers_body`}
 							>
 								{accuracy[paper.id] != null &&
 									Number(accuracy[paper.id]) !== 0 && (
@@ -324,30 +244,50 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 										</div>
 									)}
 								<div className="title-container">
-									<div onClick={() => changePaper(paper)}>
+									<button
+										type="button"
+										style={{
+											cursor: "pointer",
+											border: "none",
+											background: "none",
+											padding: 0,
+											textAlign: "left",
+										}}
+										onClick={() => changePaper(paper)}
+									>
 										<u className="paper-title">
 											<Content content={paper.title} />
 										</u>
-									</div>
-									<img
-										width={20}
-										height={20}
-										src={
-											highlightedStars.some((p) => p.id === paper.id)
-												? "/filled_star.png"
-												: "/empty_star.png"
-										}
+									</button>
+									<button
+										style={{
+											cursor: "pointer",
+											border: "none",
+											background: "none",
+											padding: 0,
+										}}
+										type="button"
 										onClick={() => toggleStar(paper)}
-										className="star-icon"
-										alt="star icon"
-									/>
+									>
+										<img
+											width={20}
+											height={20}
+											src={
+												highlightedStars.some((p) => p.id === paper.id)
+													? "/filled_star.png"
+													: "/empty_star.png"
+											}
+											className="star-icon"
+											alt="star icon"
+										/>
+									</button>
 								</div>
 								<p>
 									by&nbsp;
 									{paper.authors.map((author, index) => (
-										<span key={`${paper.id}_authors_papers`}>
+										<span key={`${paper.id}_authors_papers_${index}`}>
 											<em>
-												{author}
+												<Content content={author} mode="highlightOnly" />
 												{index < paper.authors.length - 1 ? ", " : ""}
 											</em>
 										</span>
@@ -358,18 +298,26 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 									className={expandedIndex === index ? "text expanded" : "text"}
 								>
 									<Content content={paper.summary} />
-									<div
+									<button
+										type="button"
+										style={{
+											cursor: "pointer",
+											border: "none",
+											background: "none",
+											padding: 0,
+										}}
 										className="expand-button"
 										onClick={() => toggleExpand(index)}
 									>
 										{expandedIndex === index ? "⌃" : "⌄"}
-									</div>
+									</button>
 								</div>
+
 								{paper.MAT !== "N/A" && (
 									<p>
 										<strong>Materials:</strong>{" "}
 										{paper.MAT.map((item, index) => (
-											<span key={index}>
+											<span key={`${index}_${item}`}>
 												{item}
 												{index < paper.MAT.length - 1 ? ", " : ""}
 											</span>
@@ -397,26 +345,20 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 			<NavBar searchParams={searchParams} />
 			<div className="page-main">
 				<h1 style={{ marginTop: "10px" }}>Papers</h1>
-				<Search searchParams={searchParams} to="/papers" />
-				<div style={{ textAlign: "center", marginTop: "-20px" }}>
-					<SearchSyntax />
-				</div>
-				<div className="page-container">
-					<div className="filters">
-						<Filters
-							searchParams={searchParams}
-							terms={["Abstract", "Title", "Authors", "Category"]}
-						/>
-					</div>
-					<div className="page-wrapper">
-						<Pagination
-							handlePageClick={handlePageClick}
-							totalPages={pageCount}
-						/>
-						{chooseBody()}
-						<ScrollToTop />
-						<ScrollToBottom />
-					</div>
+				<Search
+					searchParams={searchParams}
+					to="/papers"
+					options={["Abstract", "Title", "Authors", "Category"]}
+				/>
+
+				<div className="page-wrapper">
+					<Pagination
+						handlePageClick={handlePageClick}
+						totalPages={pageCount}
+					/>
+					{chooseBody()}
+					<ScrollToTop />
+					<ScrollToBottom />
 				</div>
 			</div>
 		</div>

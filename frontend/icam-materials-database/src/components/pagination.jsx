@@ -1,41 +1,48 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import "../styles/pagination.css";
 
 function Pagination({ handlePageClick, totalPages }) {
-	const query = new URLSearchParams(location.search);
-	let page = Number(query.get("page")) || 1;
-	if (page < 0) {
-		page = 1;
-	}
-	const [pageNumber, setPageNumber] = useState(page);
+	const location = useLocation();
+
+	useEffect(() => {
+		const query = new URLSearchParams(location.search);
+		let page = Number(query.get("page")) || 1;
+		if (page < 0) {
+			page = 1;
+		}
+		setPageNumber(page || 1);
+	}, [location.search]);
+
+	const [pageNumber, setPageNumber] = useState(1);
 
 	const handleBack = () => {
-		if (page >= 2) {
-			handlePageClick(page - 1);
-			setPageNumber(page - 1);
+		if (pageNumber >= 2) {
+			handlePageClick(pageNumber - 1);
+			setPageNumber(pageNumber - 1);
 		}
 	};
 
 	const handleFront = () => {
-		if (page <= totalPages - 1) {
-			handlePageClick(Number(page) + 1);
-			setPageNumber(Number(page) + 1);
+		if (pageNumber <= totalPages - 1) {
+			handlePageClick(Number(pageNumber) + 1);
+			setPageNumber(Number(pageNumber) + 1);
 		}
 	};
 
-	const handleNumber = (pageNumber) => {
-		if (Number(page) !== pageNumber) {
-			handlePageClick(pageNumber);
-			setPageNumber(pageNumber);
+	const handleNumber = (page) => {
+		if (Number(pageNumber) !== page) {
+			handlePageClick(page);
+			setPageNumber(page);
 		}
 	};
 
 	const handleSubmit = (event) => {
-		if (event.key === "Enter" && page !== pageNumber) {
-			if (pageNumber < 2 && page > 1) {
+		if (event.key === "Enter") {
+			if (pageNumber < 2 && pageNumber > 1) {
 				handlePageClick(1);
 				setPageNumber(1);
-			} else if (pageNumber > totalPages - 1 && page < totalPages) {
+			} else if (pageNumber > totalPages - 1 && pageNumber < totalPages) {
 				handlePageClick(totalPages);
 				setPageNumber(totalPages);
 			} else if (pageNumber <= totalPages - 1 && pageNumber >= 2) {
@@ -52,27 +59,40 @@ function Pagination({ handlePageClick, totalPages }) {
 	return (
 		<div className="pagination-wrapper">
 			<div className="pagination-container">
-				<span style={{ cursor: "pointer" }} onClick={() => handleNumber(1)}>
+				<button
+					type="button"
+					style={{ cursor: "pointer" }}
+					onClick={() => handleNumber(1)}
+				>
 					&lt;&lt;&nbsp;
-				</span>
-				<span style={{ cursor: "pointer" }} onClick={handleBack}>
+				</button>
+				<button
+					type="button"
+					style={{ cursor: "pointer" }}
+					onClick={handleBack}
+				>
 					&nbsp;&lt;&nbsp;
-				</span>
+				</button>
 				<input
 					type="number"
 					onKeyDown={handleSubmit}
 					value={pageNumber}
 					onChange={handleInputChange}
 				/>
-				<span style={{ cursor: "pointer" }} onClick={handleFront}>
+				<button
+					type="button"
+					style={{ cursor: "pointer" }}
+					onClick={handleFront}
+				>
 					&nbsp;&gt;&nbsp;
-				</span>
-				<span
+				</button>
+				<button
+					type="button"
 					style={{ cursor: "pointer" }}
 					onClick={() => handleNumber(totalPages)}
 				>
 					&nbsp;&gt;&gt;&nbsp;
-				</span>
+				</button>
 			</div>
 		</div>
 	);

@@ -3,7 +3,6 @@ import "../styles/properties.css";
 import { ScrollToBottom, ScrollToTop } from "./papers";
 import { useEffect, useState } from "react";
 import Search from "../components/search";
-import Filters from "../components/filters";
 import { useLocation, useNavigate } from "react-router-dom";
 import Pagination from "../components/pagination";
 import { TailSpin } from "react-loader-spinner";
@@ -48,10 +47,11 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 		const query = new URLSearchParams(location.search);
 		const page = Number(query.get("page")) || tableParams.page;
 		const perPage = Number(query.get("per_page")) || tableParams.per_page;
-		const search = query.get("query") || tableParams.query;
 		const sorting = query.get("sort") || tableParams.sorting;
-		const term = query.get("term") || tableParams.term;
 		const date = query.get("date") || tableParams.date;
+		const searches =
+			JSON.parse(decodeURIComponent(query.get("searches"))) ||
+			tableParams.searches;
 
 		const storedStars =
 			JSON.parse(localStorage.getItem("highlightedStars")) || [];
@@ -60,31 +60,29 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 		setTableParams({
 			per_page: perPage,
 			page: page,
-			query: search,
 			sorting: sorting,
-			term: term,
 			date: date,
+			searches: searches,
 		});
 
 		const startTime = performance.now();
 
 		setLoading(true);
 
-		getPapers(page, perPage, search, sorting, startTime, term, date);
+		getPapers(page, perPage, sorting, startTime, date, searches);
 	}, [location.search]);
 
 	const getPapers = (
 		page,
 		results,
-		query,
 		sorting,
 		startTime,
-		term,
 		dateRange,
+		searches,
 	) => {
 		const backend_url = import.meta.env.VITE_BACKEND_URL;
 
-		fetch(`${backend_url}/api/materials/${term}/${query}`, {
+		fetch(`${backend_url}/api/materials`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -95,6 +93,7 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 				results: results,
 				sorting: sorting,
 				date: dateRange,
+				searches: searches,
 			}),
 		})
 			.then((response) => response.json())
@@ -128,22 +127,27 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 			page: page,
 		}));
 
+		const advStr = encodeURIComponent(JSON.stringify(tableParams.searches));
+
 		navigate(
 			`?page=${page}&per_page=${tableParams.per_page}` +
-				`&query=${tableParams.query}&sort=${tableParams.sorting}` +
-				`&term=${tableParams.term}&` +
-				`${tableParams.date}`,
+				`&sort=${tableParams.sorting}` +
+				`&${tableParams.date}&advanced=${tableParams.advanced}` +
+				`&${advStr}`,
 		);
 	};
 
 	const changePaper = (paper) => {
 		const id = paper.id.replace("/-/g", "/");
 
+		const advStr = encodeURIComponent(JSON.stringify(tableParams.searches));
+
 		const papers =
 			`/properties?page=${tableParams.page}&per_page=${tableParams.per_page}` +
-			`&query=${tableParams.query}&sort=${tableParams.sorting}` +
-			`&term=${tableParams.term}&` +
-			`${tableParams.date}`;
+			`&sort=${tableParams.sorting}` +
+			`&advanced=${tableParams.advanced}` +
+			`&${tableParams.date}` +
+			`&${advStr}`;
 
 		setPaperToUse(paper);
 		setPrevUrl(papers);
@@ -162,76 +166,94 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 	return (
 		<>
 			<NavBar />
-			<div style={{ paddingBottom: "20px" }}>
-				<h1 style={{ marginTop: "10px" }}>Properties</h1>
-				<Search searchParams={tableParams} to="/properties" />
-				<div className="content-container">
-					<div className="filters-section">
-						<Filters
-							searchParams={tableParams}
-							terms={[
-								"Material",
-								"Description",
-								"Symmetry",
-								"Synthesis",
-								"Characterization",
-								"Property",
-								"Application",
-							]}
+			<h1 style={{ marginTop: "10px" }}>Properties</h1>
+			<Search
+				searchParams={tableParams}
+				to="/properties"
+				options={[
+					"Material",
+					"Description",
+					"Symmetry",
+					"Synthesis",
+					"Characterization",
+					"Property",
+					"Application",
+				]}
+			/>
+			<div className="content-container">
+				<div className="table-section">
+					<div>
+						<Pagination
+							handlePageClick={handlePageClick}
+							totalPages={pageCount}
 						/>
-					</div>
-
-					<div className="table-section">
-						<div>
-							<Pagination
-								handlePageClick={handlePageClick}
-								totalPages={pageCount}
-							/>
-							<div style={{ textAlign: "center" }}>
-								<p>
-									{!loading &&
-										`${total} Results in ${time} seconds (${pageCount} pages)`}
-								</p>
-								<p>
-									{total === 10000
-										? "Results are Limited to the first 10,000 matching documents"
-										: ""}
-								</p>
-								<b>Displaying Results for: "{tableParams.query}"</b>
-							</div>
+						<div style={{ textAlign: "center" }}>
+							<p>
+								{!loading &&
+									`${total} Results in ${time} seconds (${pageCount} pages)`}
+							</p>
+							<p>
+								{total === 10000
+									? "Results are Limited to the first 10,000 matching documents"
+									: ""}
+							</p>
+							{/* <b>Displaying Results for: "{tableParams.query}"</b> */}
 						</div>
-						{!loading ? (
-							<table className="materials-table">
-								<thead>
-									<tr>
+					</div>
+					{!loading ? (
+						<table className="materials-table">
+							<thead>
+								<tr>
+									{columns.map((column) => (
+										<th key={column.key}>{column.header}</th>
+									))}
+								</tr>
+							</thead>
+							<tbody>
+								{papers?.map((row, index) => (
+									<tr key={`${index}_${row}`}>
 										{columns.map((column) => (
-											<th key={column.key}>{column.header}</th>
-										))}
-									</tr>
-								</thead>
-								<tbody>
-									{papers?.map((row, index) => (
-										<tr key={index}>
-											{columns.map((column) => (
-												<td
-													className={
-														index === expandedIndex
-															? "expanded-col"
-															: "minimized-col"
-													}
-													key={column.key || `star-${index}`}
-													onClick={
-														column.key ? () => changePaper(row) : undefined
-													}
-												>
-													{column.key ? (
-														Array.isArray(row[column.key]) ? (
-															row[column.key].join(", ")
-														) : (
-															row[column.key] || "N/A"
-														)
+											<td
+												className={
+													index === expandedIndex
+														? "expanded-col"
+														: "minimized-col"
+												}
+												key={column.key || `star-${index}`}
+												onClick={
+													column.key ? () => changePaper(row) : undefined
+												}
+												onKeyDown={
+													column.key
+														? (e) => {
+																if (e.key === "Enter" || e.key === " ") {
+																	changePaper(row);
+																}
+															}
+														: undefined
+												}
+											>
+												{column.key ? (
+													Array.isArray(row[column.key]) ? (
+														row[column.key].join(", ")
 													) : (
-														// Render favorite star icon in the dedicated cell
+														row[column.key] || "N/A"
+													)
+												) : (
+													// Render favorite star icon in the dedicated cell
+													<button
+														type="button"
+														style={{
+															cursor: "pointer",
+															border: "none",
+															background: "none",
+															padding: 0,
+														}}
+														onClick={(e) => {
+															e.stopPropagation();
+															toggleStar(row);
+														}}
+													>
 														<img
 															width={20}
 															height={20}
@@ -240,39 +262,42 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 																	? "/filled_star.png"
 																	: "/empty_star.png"
 															}
-															onClick={(e) => {
-																e.stopPropagation();
-																toggleStar(row);
-															}}
 															className="star-icon"
 															alt="star icon"
 														/>
+													</button>
+												)}
+												{column.header === "favorite" &&
+													row[column.key] !== "N/A" && (
+														<button
+															type="button"
+															onClick={(e) => {
+																e.stopPropagation();
+																toggleExpand(index);
+															}}
+															style={{
+																cursor: "pointer",
+																border: "none",
+																background: "none",
+																color: "#f09f9c",
+																marginLeft: 15,
+															}}
+														>
+															{expandedIndex === index ? "⌃" : "⌄"}
+														</button>
 													)}
-													{column.header !== "favorite" &&
-														row[column.key] !== "N/A" && (
-															<div
-																onClick={(e) => {
-																	e.stopPropagation();
-																	toggleExpand(index);
-																}}
-																style={{ color: "#f09f9c" }}
-															>
-																{expandedIndex === index ? "⌃" : "⌄"}
-															</div>
-														)}
-												</td>
-											))}
-										</tr>
-									))}
-								</tbody>
-							</table>
-						) : (
-							<div className="papers-loader">
-								<p>Loading ...</p>
-								<TailSpin color="#00BFFF" height={100} width={100} />
-							</div>
-						)}
-					</div>
+											</td>
+										))}
+									</tr>
+								))}
+							</tbody>
+						</table>
+					) : (
+						<div className="papers-loader">
+							<p>Loading ...</p>
+							<TailSpin color="#00BFFF" height={100} width={100} />
+						</div>
+					)}
 				</div>
 			</div>
 			<ScrollToBottom />

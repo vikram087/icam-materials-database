@@ -1,20 +1,7 @@
-.page-container {
-	display: flex;
-	flex-direction: row;
-	justify-content: space-between;
-	width: 100%;
-}
-
-/* .page-main {
-	max-width: 90%;
-	min-height: 100vh;
+.page-wrapper {
+	max-width: 95%;
 	margin: 0 auto;
-	padding: 20px;
-	font-family: "Arial", sans-serif;
-	background-color: #f9f9f9;
-	box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-	border-radius: 10px;
-} */
+}
 
 .journals {
 	padding-top: 10px;

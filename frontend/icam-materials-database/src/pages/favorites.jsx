@@ -104,23 +104,40 @@ function Favorites({ setPrevUrl, setPaperToUse }) {
 										key={`${paper.id}_favs`}
 									>
 										<div className="title-container">
-											<div onClick={() => changePaper(paper)}>
+											<button
+												type="button"
+												onClick={() => changePaper(paper)}
+												style={{
+													border: "none",
+													background: "none",
+													padding: 0,
+												}}
+											>
 												<u className="paper-title">
 													<Content content={paper.title} />
 												</u>
-											</div>
-											<img
-												width={20}
-												height={20}
-												src={
-													highlightedStars.some((p) => p.id === paper.id)
-														? "/filled_star.png"
-														: "/empty_star.png"
-												}
+											</button>
+											<button
+												type="button"
+												style={{
+													border: "none",
+													background: "none",
+													padding: 0,
+												}}
 												onClick={() => toggleStar(paper)}
-												className="star-icon"
-												alt="star icon"
-											/>
+											>
+												<img
+													width={20}
+													height={20}
+													src={
+														highlightedStars.some((p) => p.id === paper.id)
+															? "/filled_star.png"
+															: "/empty_star.png"
+													}
+													className="star-icon"
+													alt="star icon"
+												/>
+											</button>
 										</div>
 										<p>
 											by&nbsp;
@@ -140,18 +157,19 @@ function Favorites({ setPrevUrl, setPaperToUse }) {
 											}
 										>
 											<Content content={paper.summary} />
-											<div
+											<button
+												type="button"
 												className="expand-button"
 												onClick={() => toggleExpand(index)}
 											>
 												{expandedIndex === index ? "⌃" : "⌄"}
-											</div>
+											</button>
 										</div>
 										{paper.MAT !== "N/A" && (
 											<p>
 												<strong>Materials:</strong>{" "}
 												{paper.MAT.map((item, index) => (
-													<span key={index}>
+													<span key={`${index}_${item}`}>
 														{item}
 														{index < paper.MAT.length - 1 ? ", " : ""}
 													</span>

@@ -6,8 +6,29 @@ function NavBar() {
 	const currentDate = new Date();
 	const now = currentDate.toISOString().slice(0, 10).replaceAll(/-/g, "");
 
-	const papers = `/papers?page=1&per_page=20&query=all&sort=Most-Relevant&term=Abstract&date=00000000-${now}`;
-	const material = `/properties?page=1&per_page=20&query=all&sort=Most-Relevant&term=Material&date=00000000-${now}`;
+	const advStrP = encodeURIComponent(
+		JSON.stringify([
+			{
+				term: "all",
+				field: "Abstract",
+				isVector: true,
+				operator: "AND",
+			},
+		]),
+	);
+	const advStrM = encodeURIComponent(
+		JSON.stringify([
+			{
+				term: "all",
+				field: "Material",
+				isVector: false,
+				operator: "AND",
+			},
+		]),
+	);
+
+	const papers = `/papers?page=1&per_page=20&sort=Most-Relevant&date=00000000-${now}&advanced=false&searches=${advStrP}`;
+	const material = `/properties?page=1&per_page=20&sort=Most-Relevant&date=00000000-${now}&advanced=false&searches=${advStrM}`;
 
 	return (
 		<nav className="navbar">

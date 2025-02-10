@@ -1,7 +1,9 @@
 .content-container {
     display: flex;
     gap: 20px;
-    padding-right: 20px;
+    margin-left: 70px;
+    margin-right: 70px;
+    margin-bottom: 30px;
 }
 
 .filters-section {
