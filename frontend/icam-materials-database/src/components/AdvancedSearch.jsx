@@ -1,39 +1,25 @@
-import { useEffect } from "react";
 import "../styles/filters.css";
 
 function AdvancedSearch({
 	searchTerms,
 	setSearchTerms,
-	terms,
 	sortVal,
 	query,
 	setQuery,
 }) {
-	useEffect(() => {
-		if (
-			terms[0] === "Material" ||
-			query[0] === "all" ||
-			sortVal !== "Most-Relevant" ||
-			searchTerms.some(
-				(val, index) =>
-					val.field === "Authors" ||
-					(val.field === "Category" && searchTerms[index].isVector === true),
-			)
-		) {
-			searchTerms.map((search) => {
-				search.isVector = false;
-			});
-		}
-	}, [terms, query, sortVal, searchTerms]);
-
-	useEffect(() => {
-		setSearchTerms((prev) =>
-			prev.map((item) => ({
-				...item,
-				field: terms[0],
-			})),
-		);
-	}, [terms, setSearchTerms]);
+	const terms = [
+		"Abstract",
+		"Title",
+		"Authors",
+		"Category",
+		"Material",
+		"Description",
+		"Symmetry or Phase Labels",
+		"Synthesis",
+		"Characterization",
+		"Property",
+		"Application",
+	];
 
 	const addSearchTerm = () => {
 		setSearchTerms((prev) => [
@@ -117,17 +103,16 @@ function AdvancedSearch({
 						<input
 							type="checkbox"
 							disabled={
-								terms[0] === "Material" ||
 								query[0] === "all" ||
 								sortVal !== "Most-Relevant" ||
-								searchTerms[index].field === "Authors" ||
-								searchTerms[index].field === "Category"
+								(searchTerms[index].field !== "Abstract" &&
+									searchTerms[index].field !== "Title")
 							}
 							checked={
 								item.isVector &&
 								sortVal === "Most-Relevant" &&
-								searchTerms[index].field !== "Authors" &&
-								searchTerms[index].field !== "Category"
+								(searchTerms[index].field === "Title" ||
+									searchTerms[index].field === "Abstract")
 							}
 							onChange={() => toggleVectorSearch(index)}
 						/>

@@ -6,8 +6,9 @@ import Search from "../components/search";
 import { useLocation, useNavigate } from "react-router-dom";
 import Pagination from "../components/pagination";
 import { TailSpin } from "react-loader-spinner";
+import Content from "../components/mathjax";
 
-function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
+function Table({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 	const [time, setTime] = useState(0);
 	const [loading, setLoading] = useState(false);
 	const [papers, setPapers] = useState([]);
@@ -45,19 +46,19 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 
 	useEffect(() => {
 		const query = new URLSearchParams(location.search);
-		const page = Number(query.get("page")) || tableParams.page;
-		const perPage = Number(query.get("per_page")) || tableParams.per_page;
-		const sorting = query.get("sort") || tableParams.sorting;
-		const date = query.get("date") || tableParams.date;
+		const page = Number(query.get("page")) || searchParams.page;
+		const perPage = Number(query.get("per_page")) || searchParams.per_page;
+		const sorting = query.get("sort") || searchParams.sorting;
+		const date = query.get("date") || searchParams.date;
 		const searches =
 			JSON.parse(decodeURIComponent(query.get("searches"))) ||
-			tableParams.searches;
+			searchParams.searches;
 
 		const storedStars =
 			JSON.parse(localStorage.getItem("highlightedStars")) || [];
 		setHighlightedStars(Array.isArray(storedStars) ? storedStars : []);
 
-		setTableParams({
+		setSearchParams({
 			per_page: perPage,
 			page: page,
 			sorting: sorting,
@@ -82,7 +83,7 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 	) => {
 		const backend_url = import.meta.env.VITE_BACKEND_URL;
 
-		fetch(`${backend_url}/api/materials`, {
+		fetch(`${backend_url}/api/papers`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -107,7 +108,7 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 
 				setPapers(data.papers);
 				setTotal(data.total);
-				setPageCount(Math.ceil(data.total / tableParams.per_page));
+				setPageCount(Math.ceil(data.total / searchParams.per_page));
 			})
 			.catch((error) => {
 				setTotal(0);
@@ -122,17 +123,17 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 	};
 
 	const changePage = (page) => {
-		setTableParams((prevParams) => ({
+		setSearchParams((prevParams) => ({
 			...prevParams,
 			page: page,
 		}));
 
-		const advStr = encodeURIComponent(JSON.stringify(tableParams.searches));
+		const advStr = encodeURIComponent(JSON.stringify(searchParams.searches));
 
 		navigate(
-			`?page=${page}&per_page=${tableParams.per_page}` +
-				`&sort=${tableParams.sorting}` +
-				`&${tableParams.date}` +
+			`?page=${page}&per_page=${searchParams.per_page}` +
+				`&sort=${searchParams.sorting}` +
+				`&${searchParams.date}` +
 				`&${advStr}`,
 		);
 	};
@@ -140,12 +141,12 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 	const changePaper = (paper) => {
 		const id = paper.id.replace("/-/g", "/");
 
-		const advStr = encodeURIComponent(JSON.stringify(tableParams.searches));
+		const advStr = encodeURIComponent(JSON.stringify(searchParams.searches));
 
 		const papers =
-			`/properties?page=${tableParams.page}&per_page=${tableParams.per_page}` +
-			`&sort=${tableParams.sorting}` +
-			`&${tableParams.date}` +
+			`/properties?page=${searchParams.page}&per_page=${searchParams.per_page}` +
+			`&sort=${searchParams.sorting}` +
+			`&${searchParams.date}` +
 			`&${advStr}`;
 
 		setPaperToUse(paper);
@@ -166,19 +167,7 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 		<>
 			<NavBar />
 			<h1 style={{ marginTop: "10px" }}>Properties</h1>
-			<Search
-				searchParams={tableParams}
-				to="/properties"
-				options={[
-					"Material",
-					"Description",
-					"Symmetry",
-					"Synthesis",
-					"Characterization",
-					"Property",
-					"Application",
-				]}
-			/>
+			<Search searchParams={searchParams} to="/properties" />
 			<div className="content-container">
 				<div className="table-section">
 					<div>
@@ -196,7 +185,7 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 									? "Results are Limited to the first 10,000 matching documents"
 									: ""}
 							</p>
-							{/* <b>Displaying Results for: "{tableParams.query}"</b> */}
+							{/* <b>Displaying Results for: "{searchParams.query}"</b> */}
 						</div>
 					</div>
 					{!loading ? (
@@ -234,9 +223,24 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 											>
 												{column.key ? (
 													Array.isArray(row[column.key]) ? (
-														row[column.key].join(", ")
+														row[column.key].length > 0 ? (
+															row[column.key].map((item, index) => (
+																<Content
+																	key={`${index}_${item}`}
+																	content={item}
+																	mode="highlightOnly"
+																/>
+															))
+														) : (
+															"N/A"
+														)
 													) : (
-														row[column.key] || "N/A"
+														(
+															<Content
+																content={row[column.key]}
+																mode="highlightOnly"
+															/>
+														) || "N/A"
 													)
 												) : (
 													// Render favorite star icon in the dedicated cell

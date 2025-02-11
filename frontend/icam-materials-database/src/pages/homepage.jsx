@@ -66,7 +66,6 @@ function HomePage() {
 						],
 					}}
 					to="/papers"
-					options={["Abstract", "Title", "Authors", "Category"]}
 				/>
 
 				<section className="media-section media-container">

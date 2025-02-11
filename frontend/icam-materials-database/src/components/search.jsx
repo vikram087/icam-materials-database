@@ -3,8 +3,36 @@ import { useNavigate, useLocation } from "react-router-dom";
 import "../styles/search.css";
 import Tooltip from "./Tooltip";
 
-function Search({ searchParams, to, options }) {
+function Search({ searchParams, to }) {
 	const location = useLocation();
+	const options =
+		to === "/properties"
+			? [
+					"Material",
+					"Description",
+					"Symmetry or Phase Labels",
+					"Synthesis",
+					"Characterization",
+					"Property",
+					"Application",
+					"Abstract",
+					"Title",
+					"Authors",
+					"Category",
+				]
+			: [
+					"Abstract",
+					"Title",
+					"Authors",
+					"Category",
+					"Material",
+					"Description",
+					"Symmetry or Phase Labels",
+					"Synthesis",
+					"Characterization",
+					"Property",
+					"Application",
+				];
 
 	useEffect(() => {
 		const query = new URLSearchParams(location.search);

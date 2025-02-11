@@ -6,9 +6,10 @@ from typing import Mapping, Sequence
 import redis
 import redis.exceptions
 from dotenv import load_dotenv
-from elasticsearch import Elasticsearch, NotFoundError
-from flask import Flask, Response, jsonify, request
+from elasticsearch import Elasticsearch
+from flask import Flask, Request, Response, jsonify, request
 from flask_cors import CORS
+from fuzzywuzzy import fuzz
 from redis import Redis
 from sentence_transformers import SentenceTransformer  # type: ignore
 
@@ -27,6 +28,16 @@ CORS(
     allow_headers=["Content-Type", "Authorization"],
 )
 model: SentenceTransformer = SentenceTransformer("all-MiniLM-L6-v2")
+
+redis_host = "redis" if DOCKER == "true" else "localhost"
+try:
+    redis_client: Redis = redis.StrictRedis(
+        host=redis_host, port=6379, db=0, decode_responses=True
+    )
+    redis_client.ping()
+    redis_success = True
+except redis.exceptions.ConnectionError:
+    redis_success = False
 
 
 @app.before_request
@@ -85,15 +96,17 @@ def health() -> tuple[Response, int]:
     return jsonify({"message": "Success"}), 200
 
 
-redis_host = "redis" if DOCKER == "true" else "localhost"
-try:
-    redis_client: Redis = redis.StrictRedis(
-        host=redis_host, port=6379, db=0, decode_responses=True
-    )
-    redis_client.ping()
-    redis_success = True
-except redis.exceptions.ConnectionError:
-    redis_success = False
+# cache.clear()
+# print("Cleared cache")
+# redis-cli FLUSHALL # command on cli to clear cache
+@app.route("/api/papers/<paper_id>", methods=["GET"])
+def get_paper(paper_id: str) -> tuple[Response, int] | Response:
+    results = client.get(index="search-papers-meta", id=paper_id)
+    paper: dict = results["_source"]
+    if paper:
+        return jsonify(paper)
+    else:
+        return jsonify({"error": "No results found"}), 404
 
 
 def get_cached_results(cache_key: str) -> dict | None:
@@ -119,257 +132,64 @@ def make_cache_key(args: list[str]):
     return "_".join([parse(arg) for arg in args])
 
 
-@app.route("/api/materials", methods=["POST"])
-def get_materials() -> tuple[Response, int]:
-    # MAT: material
-    # DSC: description of sample
-    # SPL: symmetry or phase label
-    # SMT: synthesis method
-    # CMT: characterization method
-    # PRO: property - may also include PVL (property value) or PUT (property unit)
-    # APL: application
-    try:
-        data: dict = request.get_json()
+def parse_request(request: Request) -> tuple:
+    data: dict = request.get_json()
 
-        page: int = int(data.get("page", 0))
-        num_results: int = int(data.get("results", 0))
-        sorting: str = str(data.get("sorting", ""))
+    page: int = int(data.get("page", 0))
+    num_results: int = int(data.get("results", 0))
+    sorting: str = str(data.get("sorting", ""))
 
-        today: datetime = datetime.today()
-        formatted_date: str = today.strftime("%Y%m%d")
-        date: str = str(data.get("date", f"00000000-{formatted_date}"))
-        start_date: int = int(date.split("-")[0])
-        end_date: int = int(date.split("-")[1])
+    today: datetime = datetime.today()
+    formatted_date: str = today.strftime("%Y%m%d")
+    date: str = str(data.get("date", f"00000000-{formatted_date}"))
+    start_date: int = int(date.split("-")[0])
+    end_date: int = int(date.split("-")[1])
 
-        searches: list = list(data.get("searches", []))
-    except Exception as e:
-        print(e)
-        return jsonify(None), 500
+    searches: list = list(data.get("searches", []))
 
-    if page < 0:
-        print("Page less than 0, returning None")
-        return jsonify(None), 500
-    if num_results < 0 or (
-        num_results != 10
-        and num_results != 20
-        and num_results != 50
-        and num_results != 100
-    ):
-        print("num_results invalid, returning None")
-        return jsonify(None), 500
+    return page, num_results, sorting, start_date, end_date, searches
 
-    if sorting == "Most-Recent" or sorting == "Most-Relevant":
-        sort: str = "desc"
-    elif sorting == "Oldest-First":
-        sort = "asc"
-    else:
-        print("sorting invalid, returning None")
-        return jsonify(None), 500
+
+# MAT: material
+# DSC: description of sample
+# SPL: symmetry or phase labels
+# SMT: synthesis method
+# CMT: characterization method
+# PRO: property - may also include PVL (property value) or PUT (property unit)
+# APL: application
+def handle_bool_searching(
+    searches: list[dict], start_date: int, end_date: int, sorting: str
+) -> tuple:
+    must_clause: list[dict] = []
+    or_clause: list[dict] = []
+    not_clause: list[dict] = []
+    query: dict | None = None
+    all_query: bool = False
+    vector_field: str | None = None
+    vector_query: str | None = None
 
     valid_properties: dict = {
         "material": "MAT",
         "description": "DSC",
-        "symmetry": "SPL",
+        "symmetry or phase labels": "SPL",
         "synthesis": "SMT",
         "characterization": "CMT",
         "property": "PRO",
         "application": "APL",
+        "abstract": "summary",
+        "category": "categories",
+        "authors": "authors",
+        "title": "title",
     }
 
     for search in searches:
         if search["field"].lower() not in valid_properties:
-            print("search invalid, returning None")
-            return jsonify(None), 500
+            return None, None, None, None
 
-    cache_key: str = make_cache_key(
-        [
-            json.dumps(searches),
-            f"{page}",
-            f"{num_results}",
-            sorting,
-            f"{start_date}",
-            f"{end_date}",
-        ]
-    )
-    cached_data: dict | None = get_cached_results(cache_key)
-    if cached_data:
-        return jsonify({"papers": cached_data[0], "total": cached_data[1]}), 200
-
-    try:
-        must_clause: list[dict] = []
-        not_clause: list[dict] = []
-        or_clause: list[dict] = []
-        query: dict | None = None
-
-        for search in searches:
-            if search["term"] == "all":
-                query = {
-                    "bool": {
-                        "must": [{"match_all": {}}],
-                        "filter": [
-                            {"range": {"date": {"gte": start_date, "lte": end_date}}}
-                        ],
-                    }
-                }
-                break
-
-            match_clause: dict = {
-                "match": {
-                    valid_properties[search["field"].lower()]: {
-                        "query": search["term"],
-                        "fuzziness": "AUTO",
-                    }
-                }
-            }
-            if search["operator"] == "" or search["operator"] == "AND":
-                must_clause.append(match_clause)
-            if search["operator"] == "" or search["operator"] == "NOT":
-                not_clause.append(match_clause)
-            if search["operator"] == "" or search["operator"] == "OR":
-                or_clause.append(match_clause)
-
-        if query is None:
-            query = {
-                "bool": {
-                    "must": must_clause,
-                    "should": or_clause,
-                    "must_not": not_clause,
-                    "filter": [
-                        {"range": {"date": {"gte": start_date, "lte": end_date}}}
-                    ],
-                }
-            }
-
-        response = client.search(
-            index=INDEX,
-            query=query,
-            size=num_results,
-            from_=(page - 1) * num_results,
-            sort=[{"date": {"order": sort}}]
-            if (sorting == "Most-Recent" or sorting == "Oldest-First")
-            else [],
-        )
-        total: int = response["hits"]["total"]["value"]
-        papers: list[dict] = [
-            paper["_source"]
-            for paper in response["hits"]["hits"]
-            if paper["_source"]["date"] > start_date
-            and paper["_source"]["date"] < end_date
-        ]
-
-        cache_results(cache_key, (papers, total))
-
-        return jsonify({"papers": papers, "total": total}), 200
-
-    except Exception as e:
-        print(e)
-        return jsonify(None), 500
-
-
-# cache.clear()
-# print("Cleared cache")
-# redis-cli FLUSHALL # command on cli to clear cache
-
-
-@app.route("/api/papers/<paper_id>", methods=["GET"])
-def get_paper(paper_id: str) -> tuple[Response, int] | Response:
-    results = client.get(index="search-papers-meta", id=paper_id)
-    paper: dict = results["_source"]
-    if paper:
-        return jsonify(paper)
-    else:
-        return jsonify({"error": "No results found"}), 404
-
-
-# fuzzy search for category, authors
-# vector-based search for title, summary
-# /api/papers
-@app.route("/api/papers", methods=["POST"])
-def papers() -> tuple[Response, int]:
-    try:
-        data: dict = request.get_json()
-        page: int = int(data.get("page", 0))
-        num_results: int = int(data.get("results", 0))
-        sorting: str = str(data.get("sorting", ""))
-
-        today: datetime = datetime.today()
-        formatted_date: str = today.strftime("%Y%m%d")
-        date: str = str(data.get("date", f"00000000-{formatted_date}"))
-        start_date: int = int(date.split("-")[0])
-        end_date: int = int(date.split("-")[1])
-
-        searches: list[dict] = list(data.get("searches", []))
-
-    except Exception as e:
-        print(e)
-        return jsonify(None), 500
-
-    if page < 0:
-        print("Pages less than 0, returning None")
-        return jsonify(None), 500
-    if num_results < 0 or (
-        num_results != 10
-        and num_results != 20
-        and num_results != 50
-        and num_results != 100
-    ):
-        print("num_results invalid, returning None")
-        return jsonify(None), 500
-
-    cache_key: str = make_cache_key(
-        [
-            json.dumps(searches),
-            sorting,
-            f"{page}",
-            f"{num_results}",
-            f"{start_date}",
-            f"{end_date}",
-        ]
-    )
-    if redis_success:
-        cached: dict | None = get_cached_results(cache_key)
-        if cached:
-            return jsonify(
-                {
-                    "papers": cached[0],
-                    "total": cached[1],
-                    "inflated": cached[3],
-                }
-            ), 200
-
-    if sorting == "Most-Recent" or sorting == "Most-Relevant":
-        sort: str = "desc"
-    elif sorting == "Oldest-First":
-        sort = "asc"
-    else:
-        print("sorting invalid, returning None")
-        return jsonify(None), 500
-
-    knn_search: bool = False
-
-    try:
-        size: int = client.count(index=INDEX)["count"]
-    except NotFoundError as e:
-        print(e)
-        return jsonify(None), 500
-
-    if sorting == "Most-Recent" or sorting == "Oldest-First":
-        p_sort: Sequence[Mapping | str] = [{"date": {"order": sort}}, "_score"]
-    elif sorting == "Most-Relevant":
-        p_sort = [{"_score": {"order": sort}}]
-
-    must_clause: list[dict] = []
-    not_clause: list[dict] = []
-    or_clause: list[dict] = []
-    quer: dict | None = None
-    vector_field: str | None = None
-    vector_query: str | None = None
-    all_query: bool | None = None
-
-    for search in searches:
+        # all query will always be all papers
         if search["term"] == "all":
             all_query = True
-            quer = {
+            query = {
                 "bool": {
                     "must": [{"match_all": {}}],
                     "filter": [
@@ -379,7 +199,12 @@ def papers() -> tuple[Response, int]:
             }
             break
 
-        if search["isVector"] and sorting == "Most-Relevant":
+        # vector search will use embedding fields
+        if (
+            search["isVector"]
+            and sorting == "Most-Relevant"
+            and search["field"].lower() in ("abstract", "title")
+        ):
             if search["field"].lower() == "abstract":
                 vector_field = "summary_embedding"
             else:
@@ -387,28 +212,30 @@ def papers() -> tuple[Response, int]:
             vector_query = search["term"].lower()
             continue
 
-        if search["field"].lower() == "abstract":
-            search["field"] = "summary"
-        if search["field"].lower() == "category":
-            search["field"] = "categories"
+        # adjusting field according to correct search term
+        search["field"] = valid_properties[search["field"].lower()]
 
+        # constructing match clause
         match_clause: dict = {
             "match": {
-                search["field"].lower(): {
+                search["field"]: {
                     "query": search["term"],
                     "fuzziness": "AUTO",
                 }
             }
         }
+
+        # deciding where to put match clause
         if search["operator"] == "" or search["operator"] == "AND":
             must_clause.append(match_clause)
-        if search["operator"] == "" or search["operator"] == "NOT":
+        elif search["operator"] == "NOT":
             not_clause.append(match_clause)
-        if search["operator"] == "" or search["operator"] == "OR":
+        elif search["operator"] == "OR":
             or_clause.append(match_clause)
 
-    if quer is None:
-        quer = {
+    # if not all query construct query according to constraints
+    if not all_query:
+        query = {
             "bool": {
                 "must": must_clause,
                 "should": or_clause,
@@ -417,137 +244,390 @@ def papers() -> tuple[Response, int]:
             }
         }
 
-    highlight: dict = {
-        "pre_tags": ["<mark>"],
-        "post_tags": ["</mark>"],
-        "fields": {
-            "summary": {
-                "type": "unified",
-                "fragment_size": 100,
-                "number_of_fragments": 2,
-            },
-            "title": {
-                "type": "unified",
-                "fragment_size": 50,
-                "number_of_fragments": 1,
-            },
-            "authors": {
-                "type": "unified",
-                "fragment_size": 50,
-                "number_of_fragments": 1,
-            },
-        },
-    }
+    return (
+        all_query,
+        query,
+        vector_field,
+        vector_query,
+    )
 
-    if vector_field is None or vector_query is None:
-        knn_search = False
-        try:
-            results = client.search(
-                query=quer,
-                size=num_results,
-                from_=(page - 1) * num_results,
-                highlight=highlight,
-                sort=[{"date": {"order": sort}}]
-                if (sorting == "Most-Recent" or sorting == "Oldest-First")
-                else None,
-                index=INDEX,
-            )
-        except Exception as e:
-            print(e)
-            return jsonify(None), 500
-        if results["hits"]["hits"] == []:
-            print("No hits")
-            return jsonify(None), 500
+
+def req_validation(page: int, num_results: int, sorting: str) -> str | None:
+    if page < 0:
+        print("Pages less than 0, returning None")
+        return None
+    if num_results < 0 or (
+        num_results != 10
+        and num_results != 20
+        and num_results != 50
+        and num_results != 100
+    ):
+        print("num_results invalid, returning None")
+        return None
+    if sorting == "Most-Recent" or sorting == "Most-Relevant":
+        sort: str = "desc"
+    elif sorting == "Oldest-First":
+        sort = "asc"
     else:
-        if size < num_results:
-            size = num_results
-        knn_search = True
-        try:
-            results = client.search(
-                knn={
-                    "field": vector_field,
-                    "query_vector": get_embedding(vector_query),
-                    "num_candidates": size if size < 10000 else 10000,
-                    "k": num_results,
-                },
-                query=quer,
-                highlight=highlight,
-                from_=0,  # consider changing to (page-1)*num_results
-                size=page * num_results,
-                sort=p_sort,
-                index=INDEX,
-            )
-        except Exception as e:
-            print(e)
-            return jsonify(None), 500
-        if results["hits"]["hits"] == []:
-            print("No hits")
-            return jsonify(None), 500
+        print("sorting invalid, returning None")
+        return None
+
+    return sort
+
+
+def bool_expression_to_dict(query_body):
+    # Grab the boolean part
+    bool_part = query_body.get("bool", {})
+    must_clauses = bool_part.get("must", [])
+    should_clauses = bool_part.get("should", [])
+
+    # This dictionary will hold { field: [query_string, ...], ... }
+    result = {}
+
+    def extract_terms(match_array):
+        for clause in match_array:
+            # clause might look like {"match": {"authors": {"query": "something", ...}}}
+            if "match" in clause:
+                match_content = clause["match"]
+                # match_content is e.g. {"authors": {"query": "piers coleman", "fuzziness": "AUTO"}}
+                for field, match_info in match_content.items():
+                    query_value = match_info.get("query")
+                    if query_value:
+                        # Append to our result dict
+                        if field not in result:
+                            result[field] = []
+                        result[field].append(query_value)
+
+    # Extract queries from must & should
+    extract_terms(must_clauses)
+    extract_terms(should_clauses)
+
+    # Optional: remove duplicates if needed
+    for field in result:
+        result[field] = list(dict.fromkeys(result[field]))
+
+    return result
+
+
+def apply_highlight_markup(
+    source,
+    highlighted_terms,
+    fields_to_highlight,
+    similarity_threshold: int = 80,
+):
+    for field in fields_to_highlight:
+        if field in highlighted_terms:
+            highlight_values = highlighted_terms[field]
+
+            if isinstance(source.get(field), list):
+                source[field] = [
+                    apply_fuzzy_mark_tags(item, highlight_values, similarity_threshold)
+                    for item in source[field]
+                ]
+            elif isinstance(source.get(field), str):
+                source[field] = apply_fuzzy_mark_tags(
+                    source[field], highlight_values, similarity_threshold
+                )
+
+    return source
+
+
+def apply_fuzzy_mark_tags(text, terms, similarity_threshold):
+    if not isinstance(text, str):
+        return text
+
+    # Keep track of matches to avoid overlapping highlights
+    matches = []
+
+    # Find all potential matches for each term
+    for term in terms:
+        text_lower = text.lower()
+        term_lower = term.lower()
+
+        # Slide a window the size of the search term through the text
+        window_size = len(term)
+        for i in range(len(text_lower) - window_size + 1):
+            window = text_lower[i : i + window_size]
+
+            # Calculate similarity score
+            score = fuzz.ratio(window.lower(), term_lower)
+
+            if score >= similarity_threshold:
+                matches.append(
+                    {
+                        "start": i,
+                        "end": i + window_size,
+                        "text": text[i : i + window_size],
+                        "score": score,
+                    }
+                )
+
+    # Sort matches by score (highest first) and position
+    matches.sort(key=lambda x: (-x["score"], x["start"]))
+
+    # Filter out overlapping matches, keeping the highest scoring ones
+    filtered_matches = []
+    for match in matches:
+        overlapping = False
+        for existing in filtered_matches:
+            if match["start"] < existing["end"] and match["end"] > existing["start"]:
+                overlapping = True
+                break
+        if not overlapping:
+            filtered_matches.append(match)
+
+    # Sort matches by position for proper highlighting
+    filtered_matches.sort(key=lambda x: x["start"])
+
+    # Apply highlighting tags
+    result = ""
+    last_end = 0
+    for match in filtered_matches:
+        result += text[last_end : match["start"]]
+        result += f"<mark>{match['text']}</mark>"
+        last_end = match["end"]
+    result += text[last_end:]
+
+    return result
+
+
+def handle_vector_search(
+    num_results: int,
+    vector_field: str,
+    vector_query: str,
+    quer: dict,
+    page: int,
+    p_sort: Sequence[Mapping | str],
+    size: int,
+):
+    # queries done based on size of index
+    if size < num_results:
+        size = num_results
+
+    results = client.search(
+        knn={
+            "field": vector_field,
+            "query_vector": get_embedding(vector_query),
+            "num_candidates": size
+            if size < 10000
+            else 10000,  # not sure if should be lower or not
+            "k": num_results,
+        },
+        query=quer,
+        from_=(page - 1) * num_results,
+        size=num_results,
+        sort=p_sort,
+        index=INDEX,
+    )
+
+    # if empty return Nones
+    if results["hits"]["hits"] == []:
+        return None, None, None
 
     hits: dict = results["hits"]["hits"]
-
-    total: int = results["hits"]["total"]["value"]
     inflated: int = -1
-    if knn_search and all_query is None:
-        try:
-            if vector_field == "summary_embedding":
-                quer_field = "summary"
-            elif vector_field == "title_embedding":
-                quer_field = "title"
 
-            quer["bool"]["must"].append(
-                {"match": {quer_field: {"query": vector_query, "fuzziness": "AUTO"}}}
-            )
-            total = client.search(
-                query=quer,
-                size=num_results,
-                from_=(page - 1)
-                * num_results,  # try with this, if different total for every page, switch to line below
-                # from_=0,
-                # sort=[{"date": {"order": sort}}],
-                index=INDEX,
-            )["hits"]["total"]["value"]
-        except Exception as e:
-            print(e)
+    # getting query field
+    if vector_field == "summary_embedding":
+        quer_field = "summary"
+    elif vector_field == "title_embedding":
+        quer_field = "title"
+
+    # creating "must" bool expression
+    quer["bool"]["must"].append(
+        {"match": {quer_field: {"query": vector_query, "fuzziness": "AUTO"}}}
+    )
+
+    # running fuzzy search to see apprx how many papers to display
+    total = client.search(
+        query=quer,
+        size=num_results,
+        from_=(page - 1) * num_results,
+        index=INDEX,
+    )["hits"]["total"]["value"]
+
+    # if small total, set inflated to be papers found and total is 100 default
+    if total < 100 and size >= 100:
+        inflated = total
+        total = 100
+
+    to_highlight = bool_expression_to_dict(quer)
+
+    # constructing filtered papers
+    filtered_papers: list[dict] = []
+    for paper in hits:
+        source: dict = paper["_source"]
+
+        source.pop("summary_embedding", None)
+        source.pop("title_embedding", None)
+
+        fields_to_highlight = [
+            "summary",
+            "title",
+            "authors",
+            "APL",
+            "CMT",
+            "DSC",
+            "MAT",
+            "PRO",
+            "PVL",
+            "PUT",
+            "SMT",
+            "SPL",
+        ]
+
+        source = apply_highlight_markup(source, to_highlight, fields_to_highlight)
+
+        filtered_papers.append(source)
+
+    return inflated, filtered_papers, total
+
+
+def handle_regular_search(
+    quer: dict,
+    num_results: int,
+    page: int,
+    sort: str,
+    sorting: str,
+) -> tuple:
+    # searching index
+    results = client.search(
+        query=quer,
+        size=num_results,
+        from_=(page - 1) * num_results,
+        sort=[{"date": {"order": sort}}]
+        if (sorting == "Most-Recent" or sorting == "Oldest-First")
+        else None,
+        index=INDEX,
+    )
+
+    to_highlight = bool_expression_to_dict(quer)
+
+    # no results, return Nones
+    if results["hits"]["hits"] == []:
+        return None, None, None
+
+    # getting data, if highlights to be made, add those
+    filtered_papers = []
+    for hit in results["hits"]["hits"]:
+        source = hit["_source"]
+
+        source.pop("summary_embedding", None)
+        source.pop("title_embedding", None)
+
+        fields_to_highlight = [
+            "summary",
+            "title",
+            "authors",
+            "APL",
+            "CMT",
+            "DSC",
+            "MAT",
+            "PRO",
+            "PVL",
+            "PUT",
+            "SMT",
+            "SPL",
+        ]
+
+        source = apply_highlight_markup(source, to_highlight, fields_to_highlight)
+
+        filtered_papers.append(source)
+
+    return -1, filtered_papers, results["hits"]["total"]["value"]
+
+
+@app.route("/api/papers", methods=["POST"])
+def papers() -> tuple[Response, int]:
+    try:
+        # parsing req
+        page, num_results, sorting, start_date, end_date, searches = parse_request(
+            request
+        )
+
+        # returning None for invalid req
+        sort: str | None = req_validation(page, num_results, sorting)
+        if sort is None:
             return jsonify(None), 500
 
-        if total < 100 and size >= 100:
-            inflated = total
-            total = 100
+        # constructing/querying cache
+        cache_key: str = make_cache_key(
+            [
+                json.dumps(searches),
+                sorting,
+                f"{page}",
+                f"{num_results}",
+                f"{start_date}",
+                f"{end_date}",
+            ]
+        )
+        if redis_success:
+            cached: dict | None = get_cached_results(cache_key)
+            if cached:
+                return jsonify(
+                    {
+                        "papers": cached[0],
+                        "total": cached[1],
+                        "inflated": cached[3],
+                    }
+                ), 200
 
-        papers: list[dict] = hits[(page - 1) * num_results :]
-        filtered_papers: list[dict] = []
+        # getting size of index and how to sort
+        size: int = client.count(index=INDEX)["count"]
 
-        for paper in papers:
-            source: dict = paper["_source"]
-            source.pop("summary_embedding", None)
-            source.pop("title_embedding", None)
+        if sorting == "Most-Recent" or sorting == "Oldest-First":
+            p_sort: Sequence[Mapping | str] = [{"date": {"order": sort}}, "_score"]
+        elif sorting == "Most-Relevant":
+            p_sort = [{"_score": {"order": sort}}]
 
-            filtered_papers.append(source)
-    else:
-        filtered_papers = []
-        for hit in hits:
-            source = hit["_source"]
-            highlight = hit.get("highlight", {})
+        # boolean search query
+        all_query, quer, vector_field, vector_query = handle_bool_searching(
+            searches, start_date, end_date, sorting
+        )
+        if all_query is None or quer is None:
+            print("Failed to bool search")
+            return jsonify(None), 500
 
-            source["summary"] = highlight.get("summary", source.get("summary"))
-            source["title"] = highlight.get("title", source.get("title"))
-            source["authors"] = highlight.get("authors", source.get("authors"))
+        # which type of search
+        if vector_field is None or vector_query is None or all_query:
+            inflated, filtered_papers, total = handle_regular_search(
+                quer,
+                num_results,
+                page,
+                sort,
+                sorting,
+            )
+        else:
+            inflated, filtered_papers, total = handle_vector_search(
+                num_results,
+                vector_field,
+                vector_query,
+                quer,
+                page,
+                p_sort,
+                size,
+            )
 
-            filtered_papers.append(source)
+        if inflated is None or filtered_papers is None or total is None:
+            print("No hits")
+            return jsonify(None), 500
 
-    if filtered_papers:
-        cache_results(cache_key, (filtered_papers, total, inflated))
+        # cache and return, else error
+        if filtered_papers:
+            cache_results(cache_key, (filtered_papers, total, inflated))
 
-        return jsonify(
-            {
-                "papers": filtered_papers,
-                "total": total,
-                "inflated": inflated,
-            }
-        ), 200
-    else:
-        return jsonify({"error": "No results found"}), 404
+            return jsonify(
+                {
+                    "papers": filtered_papers,
+                    "total": total,
+                    "inflated": inflated,
+                }
+            ), 200
+        else:
+            return jsonify({"error": "No results found"}), 404
+    except Exception as e:
+        print(e)
+        return jsonify(None), 500
 
 
 if __name__ == "__main__":

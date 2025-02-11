@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import "../styles/filters.css";
 import { useNavigate } from "react-router-dom";
 import DatePicker from "react-datepicker";
@@ -6,16 +6,10 @@ import "react-datepicker/dist/react-datepicker.css";
 import AdvancedSearch from "./AdvancedSearch";
 import NavBar from "./navbar";
 
-function Filters({ searchParams, tableParams }) {
+function Filters({ searchParams }) {
 	const navigate = useNavigate();
 
 	const [nextPage, setNextPage] = useState("papers");
-	const [terms, setTerms] = useState([
-		"Abstract",
-		"Title",
-		"Authors",
-		"Category",
-	]);
 	const [searchTerms, setSearchTerms] = useState(
 		searchParams.searches || [
 			{
@@ -26,42 +20,6 @@ function Filters({ searchParams, tableParams }) {
 			},
 		],
 	);
-
-	useEffect(() => {
-		if (nextPage === "properties") {
-			setSearchTerms(tableParams.searches);
-			const termsArr = tableParams.searches.map((val) => val.term);
-			setQuery(termsArr);
-			setSortVal(tableParams.sorting);
-			setNumResults(tableParams.per_page);
-			setStartDate(convertIntToDate(tableParams.date.split("-")[0]));
-			setEndDate(convertIntToDate(tableParams.date.split("-")[1]));
-		} else {
-			setSearchTerms(searchParams.searches);
-			const termsArr = searchParams.searches.map((val) => val.term);
-			setQuery(termsArr);
-			setSortVal(searchParams.sorting);
-			setNumResults(searchParams.per_page);
-			setStartDate(convertIntToDate(searchParams.date.split("-")[0]));
-			setEndDate(convertIntToDate(searchParams.date.split("-")[1]));
-		}
-	}, [nextPage]);
-
-	useEffect(() => {
-		if (nextPage === "properties") {
-			setTerms([
-				"Material",
-				"Description",
-				"Symmetry",
-				"Synthesis",
-				"Characterization",
-				"Property",
-				"Application",
-			]);
-		} else {
-			setTerms(["Abstract", "Title", "Authors", "Category"]);
-		}
-	}, [nextPage]);
 
 	const termsArr = searchParams.searches.map((val) => val.term);
 
@@ -155,7 +113,6 @@ function Filters({ searchParams, tableParams }) {
 			<NavBar />
 			<div className="filters-container">
 				<AdvancedSearch
-					terms={terms}
 					searchTerms={searchTerms}
 					setSearchTerms={setSearchTerms}
 					sortVal={sortVal}
@@ -203,7 +160,7 @@ function Filters({ searchParams, tableParams }) {
 							</div>
 						</div>
 
-						<p style={{ fontSize: "14px" }}>Page:</p>
+						<p style={{ fontSize: "14px" }}>Next Page:</p>
 						<div className="radio-row">
 							<label>
 								<input
@@ -213,7 +170,7 @@ function Filters({ searchParams, tableParams }) {
 									onChange={(e) => setNextPage(e.target.value)}
 									checked={nextPage === "papers"}
 								/>
-								Papers
+								Papers (traditional search format)
 							</label>
 							<label>
 								<input
@@ -223,7 +180,7 @@ function Filters({ searchParams, tableParams }) {
 									onChange={(e) => setNextPage(e.target.value)}
 									checked={nextPage === "properties"}
 								/>
-								Properties
+								Properties (table format)
 							</label>
 						</div>
 

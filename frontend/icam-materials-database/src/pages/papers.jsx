@@ -335,11 +335,7 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 			<NavBar searchParams={searchParams} />
 			<div className="page-main">
 				<h1 style={{ marginTop: "10px" }}>Papers</h1>
-				<Search
-					searchParams={searchParams}
-					to="/papers"
-					options={["Abstract", "Title", "Authors", "Category"]}
-				/>
+				<Search searchParams={searchParams} to="/papers" />
 
 				<div className="page-wrapper">
 					<Pagination

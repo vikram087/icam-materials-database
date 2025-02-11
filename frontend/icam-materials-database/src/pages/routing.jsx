@@ -27,21 +27,6 @@ function App() {
 		],
 	});
 
-	const [tableParams, setTableParams] = useState({
-		per_page: 20,
-		page: 1,
-		sorting: "Most-Relevant",
-		date: `00000000-${now}`,
-		searches: [
-			{
-				term: "all",
-				field: "material",
-				isVector: false,
-				operator: "AND",
-			},
-		],
-	});
-
 	const [prevUrl, setPrevUrl] = useState("");
 	const [paperToUse, setPaperToUse] = useState({});
 
@@ -77,17 +62,15 @@ function App() {
 					element={
 						<Table
 							setPrevUrl={setPrevUrl}
-							tableParams={tableParams}
-							setTableParams={setTableParams}
+							searchParams={searchParams}
+							setSearchParams={setSearchParams}
 							setPaperToUse={setPaperToUse}
 						/>
 					}
 				/>
 				<Route
 					path="/advanced"
-					element={
-						<Filters searchParams={searchParams} tableParams={tableParams} />
-					}
+					element={<Filters searchParams={searchParams} />}
 				/>
 			</Routes>
 		</Router>

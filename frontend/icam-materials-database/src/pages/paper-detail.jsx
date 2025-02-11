@@ -291,7 +291,7 @@ export default PaperDetail;
 
 // MAT: material
 // DSC: description of sample
-// SPL: symmetry or phase label
+// SPL: symmetry or phase labels
 // SMT: synthesis method
 // CMT: characterization method
 // PRO: property - may also include PVL (property value) or PUT (property unit)
