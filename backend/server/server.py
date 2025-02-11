@@ -590,6 +590,7 @@ def papers() -> tuple[Response, int]:
 
         # which type of search
         if vector_field is None or vector_query is None or all_query:
+            # print("REGULAR")
             inflated, filtered_papers, total = handle_regular_search(
                 quer,
                 num_results,
@@ -598,6 +599,7 @@ def papers() -> tuple[Response, int]:
                 sorting,
             )
         else:
+            # print("VECTOR")
             inflated, filtered_papers, total = handle_vector_search(
                 num_results,
                 vector_field,
