@@ -132,7 +132,7 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 		navigate(
 			`?page=${page}&per_page=${tableParams.per_page}` +
 				`&sort=${tableParams.sorting}` +
-				`&${tableParams.date}&advanced=${tableParams.advanced}` +
+				`&${tableParams.date}` +
 				`&${advStr}`,
 		);
 	};
@@ -145,7 +145,6 @@ function Table({ tableParams, setTableParams, setPrevUrl, setPaperToUse }) {
 		const papers =
 			`/properties?page=${tableParams.page}&per_page=${tableParams.per_page}` +
 			`&sort=${tableParams.sorting}` +
-			`&advanced=${tableParams.advanced}` +
 			`&${tableParams.date}` +
 			`&${advStr}`;
 

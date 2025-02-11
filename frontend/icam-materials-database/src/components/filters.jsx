@@ -6,7 +6,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import AdvancedSearch from "./AdvancedSearch";
 import NavBar from "./navbar";
 
-function Filters({ searchParams }) {
+function Filters({ searchParams, tableParams }) {
 	const navigate = useNavigate();
 
 	const [nextPage, setNextPage] = useState("papers");
@@ -18,9 +18,34 @@ function Filters({ searchParams }) {
 	]);
 	const [searchTerms, setSearchTerms] = useState(
 		searchParams.searches || [
-			{ id: 1, term: "", field: "Abstract", operator: "AND", isVector: false },
+			{
+				term: "all",
+				field: "Abstract",
+				operator: "AND",
+				isVector: false,
+			},
 		],
 	);
+
+	useEffect(() => {
+		if (nextPage === "properties") {
+			setSearchTerms(tableParams.searches);
+			const termsArr = tableParams.searches.map((val) => val.term);
+			setQuery(termsArr);
+			setSortVal(tableParams.sorting);
+			setNumResults(tableParams.per_page);
+			setStartDate(convertIntToDate(tableParams.date.split("-")[0]));
+			setEndDate(convertIntToDate(tableParams.date.split("-")[1]));
+		} else {
+			setSearchTerms(searchParams.searches);
+			const termsArr = searchParams.searches.map((val) => val.term);
+			setQuery(termsArr);
+			setSortVal(searchParams.sorting);
+			setNumResults(searchParams.per_page);
+			setStartDate(convertIntToDate(searchParams.date.split("-")[0]));
+			setEndDate(convertIntToDate(searchParams.date.split("-")[1]));
+		}
+	}, [nextPage]);
 
 	useEffect(() => {
 		if (nextPage === "properties") {
@@ -38,7 +63,9 @@ function Filters({ searchParams }) {
 		}
 	}, [nextPage]);
 
-	const [toggleReset, setToggleReset] = useState(false);
+	const termsArr = searchParams.searches.map((val) => val.term);
+
+	const [query, setQuery] = useState(termsArr || ["all"]);
 
 	const [sortVal, setSortVal] = useState(
 		searchParams.sorting || "Most-Relevant",
@@ -89,9 +116,15 @@ function Filters({ searchParams }) {
 		setStartDate(new Date(0));
 		setEndDate(new Date());
 		setNextPage("papers");
-
-		// This toggles so the advanced search resets via useEffect
-		setToggleReset((prev) => !prev);
+		setQuery(["all"]);
+		setSearchTerms([
+			{
+				term: "all",
+				field: "Abstract",
+				operator: "AND",
+				isVector: false,
+			},
+		]);
 	};
 
 	const updateDateVal = (date, type) => {
@@ -110,9 +143,10 @@ function Filters({ searchParams }) {
 
 	const handleSearch = () => {
 		const advStr = encodeURIComponent(JSON.stringify(searchTerms));
+
 		navigate(
 			`/${nextPage}?page=1&per_page=${numResults}&sort=${sortVal}` +
-				`&date=${dateRange}&advanced=true&searches=${advStr}`,
+				`&date=${dateRange}&searches=${advStr}`,
 		);
 	};
 
@@ -121,83 +155,120 @@ function Filters({ searchParams }) {
 			<NavBar />
 			<div className="filters-container">
 				<AdvancedSearch
-					searchParams={searchParams}
 					terms={terms}
-					toggleReset={toggleReset}
 					searchTerms={searchTerms}
 					setSearchTerms={setSearchTerms}
+					sortVal={sortVal}
+					query={query}
+					setQuery={setQuery}
 				/>
 
-				<div className="filters-card">
-					<div className="filters-header">
-						<h2>Filters</h2>
-						<button type="button" className="reset-btn" onClick={handleReset}>
-							Reset
-						</button>
-					</div>
+				<div className="filters-card-container">
+					<div className="filters-card">
+						<div className="filters-header">
+							<h2>Filters</h2>
+							<button type="button" className="reset-btn" onClick={handleReset}>
+								Reset
+							</button>
+						</div>
 
-					<div className="filters-row">
-						<Sort order={order} setSortVal={setSortVal} sort={sortVal} />
-						<Dropdown
-							terms={results}
-							setTerm={setNumResults}
-							value="Per Page"
-							term={numResults}
-						/>
-					</div>
-
-					<div className="date-row">
-						<div className="date-group">
-							<label>Start Date</label>
-							<DatePicker
-								id="startDate"
-								dateFormat="yyyy-MM-dd"
-								selected={startDate}
-								onChange={(date) => updateDateVal(date, "start")}
+						<div className="filters-row">
+							<Sort order={order} setSortVal={setSortVal} sort={sortVal} />
+							<Dropdown
+								terms={results}
+								setTerm={setNumResults}
+								value="Per Page"
+								term={numResults}
 							/>
 						</div>
-						<div className="date-group">
-							<label>End Date</label>
-							<DatePicker
-								id="endDate"
-								dateFormat="yyyy-MM-dd"
-								selected={endDate}
-								onChange={(date) => updateDateVal(date, "end")}
-							/>
+
+						<div className="date-row">
+							<div className="date-group">
+								<label>Start Date</label>
+								<DatePicker
+									id="startDate"
+									dateFormat="yyyy-MM-dd"
+									selected={startDate}
+									onChange={(date) => updateDateVal(date, "start")}
+								/>
+							</div>
+							<div className="date-group">
+								<label>End Date</label>
+								<DatePicker
+									id="endDate"
+									dateFormat="yyyy-MM-dd"
+									selected={endDate}
+									onChange={(date) => updateDateVal(date, "end")}
+								/>
+							</div>
+						</div>
+
+						<p style={{ fontSize: "14px" }}>Page:</p>
+						<div className="radio-row">
+							<label>
+								<input
+									type="radio"
+									name="searchType"
+									value="papers"
+									onChange={(e) => setNextPage(e.target.value)}
+									checked={nextPage === "papers"}
+								/>
+								Papers
+							</label>
+							<label>
+								<input
+									type="radio"
+									name="searchType"
+									value="properties"
+									onChange={(e) => setNextPage(e.target.value)}
+									checked={nextPage === "properties"}
+								/>
+								Properties
+							</label>
+						</div>
+
+						<div className="submit-row">
+							<button
+								type="button"
+								className="primary-btn"
+								onClick={handleSearch}
+								disabled={query.some(
+									(val, index) =>
+										val.trim() === "" || (val.trim() === "all" && index !== 0),
+								)}
+							>
+								Search
+							</button>
 						</div>
 					</div>
-
-					<div className="radio-row">
-						<label>
-							<input
-								type="radio"
-								name="searchType"
-								value="papers"
-								onChange={(e) => setNextPage(e.target.value)}
-								checked={nextPage === "papers"}
-							/>
-							Papers
-						</label>
-						<label>
-							<input
-								type="radio"
-								name="searchType"
-								value="properties"
-								onChange={(e) => setNextPage(e.target.value)}
-								checked={nextPage === "properties"}
-							/>
-							Properties
-						</label>
-					</div>
-
-					<div className="submit-row">
-						<button
-							type="button"
-							className="primary-btn"
-							onClick={handleSearch}
-						>
-							Search
-						</button>
+					<div className="info-panel">
+						<h3>Advanced Search Guide</h3>
+						<ul>
+							<li>
+								Enter a search term and select a field (e.g., Abstract, Title,
+								Authors).
+							</li>
+							<li>
+								Use logical operators (<strong>AND, OR, NOT</strong>) to refine
+								your query.
+							</li>
+							<li>
+								Enable <strong>Vector Search</strong> for more relevant results
+								(only one term allowed).
+							</li>
+							<li>
+								You cannot use Vector Search with “all” or for Authors/Category
+								fields.
+							</li>
+							<li>
+								The <strong>“all”</strong> keyword must be the first and only
+								term when used.
+							</li>
+							<li>
+								The <strong>"all"</strong> keyword shows all results and is the
+								default query.
+							</li>
+						</ul>
 					</div>
 				</div>
 			</div>

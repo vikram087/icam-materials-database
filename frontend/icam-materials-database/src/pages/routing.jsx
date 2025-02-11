@@ -17,7 +17,6 @@ function App() {
 		page: 1,
 		sorting: "Most-Relevant",
 		date: `00000000-${now}`,
-		advanced: false,
 		searches: [
 			{
 				term: "all",
@@ -33,7 +32,6 @@ function App() {
 		page: 1,
 		sorting: "Most-Relevant",
 		date: `00000000-${now}`,
-		advanced: false,
 		searches: [
 			{
 				term: "all",
@@ -87,7 +85,9 @@ function App() {
 				/>
 				<Route
 					path="/advanced"
-					element={<Filters searchParams={searchParams} />}
+					element={
+						<Filters searchParams={searchParams} tableParams={tableParams} />
+					}
 				/>
 			</Routes>
 		</Router>

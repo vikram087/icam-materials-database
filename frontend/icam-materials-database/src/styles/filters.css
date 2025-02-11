@@ -100,6 +100,21 @@
   .remove-term-btn:hover {
 	background: #ff2f2f;
   }
+
+  button:disabled {
+    background: #d6d6d6;
+    cursor: not-allowed;
+    color: #8a8a8a;
+    border: 1px solid #bfbfbf;
+    opacity: 0.6;
+    transition: background 0.2s ease, opacity 0.2s ease;
+  }
+
+  button:disabled:hover {
+	background: #d6d6d6;
+	opacity: 0.6;
+  }
+
   
   .as-btn-group {
 	margin-top: 10px;
@@ -119,14 +134,55 @@
   
   /* --- Filters Card --- */
   
-  .filters-card {
-	background: #ffffff;
-	border: 1px solid #ddd;
-	border-radius: 8px;
-	padding: 15px;
-	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
-  }
-  
+
+  .filters-card-container {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+/* Filters Card */
+.filters-card {
+    flex: 1;
+    padding: 15px;
+    background-color: #ffffff;
+    border-radius: 6px;
+    box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Info Panel Inside Filters */
+.info-panel {
+    flex: 1;
+    padding: 15px;
+    background-color: #ffffff;
+    border-radius: 6px;
+    box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
+    font-size: 14px;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+/* Header Styling */
+.info-panel h3 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #222;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 8px;
+}
+
+/* List Styling */
+.info-panel ul {
+    padding-left: 18px;
+    margin: 0;
+}
+
+.info-panel li {
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
   /* Header area for filters */
   .filters-header {
 	display: flex;
@@ -288,4 +344,3 @@
 	background-color: #4e54c8;
 	border-radius: 50%;
   }
-  

@@ -333,7 +333,6 @@ def papers() -> tuple[Response, int]:
                 {
                     "papers": cached[0],
                     "total": cached[1],
-                    "accuracy": cached[2],
                     "inflated": cached[3],
                 }
             ), 200
@@ -380,12 +379,13 @@ def papers() -> tuple[Response, int]:
             }
             break
 
-        if search["isVector"]:
+        if search["isVector"] and sorting == "Most-Relevant":
             if search["field"].lower() == "abstract":
                 vector_field = "summary_embedding"
             else:
                 vector_field = "title_embedding"
             vector_query = search["term"].lower()
+            continue
 
         if search["field"].lower() == "abstract":
             search["field"] = "summary"
@@ -485,7 +485,6 @@ def papers() -> tuple[Response, int]:
             return jsonify(None), 500
 
     hits: dict = results["hits"]["hits"]
-    accuracy: dict = {}
 
     total: int = results["hits"]["total"]["value"]
     inflated: int = -1
@@ -496,9 +495,9 @@ def papers() -> tuple[Response, int]:
             elif vector_field == "title_embedding":
                 quer_field = "title"
 
-            quer["bool"]["must"] = [
+            quer["bool"]["must"].append(
                 {"match": {quer_field: {"query": vector_query, "fuzziness": "AUTO"}}}
-            ]
+            )
             total = client.search(
                 query=quer,
                 size=num_results,
@@ -525,9 +524,6 @@ def papers() -> tuple[Response, int]:
             source.pop("title_embedding", None)
 
             filtered_papers.append(source)
-
-            if paper.get("_score") is not None:
-                accuracy[source["id"]] = float(str(paper["_score"])[1:])
     else:
         filtered_papers = []
         for hit in hits:
@@ -541,13 +537,12 @@ def papers() -> tuple[Response, int]:
             filtered_papers.append(source)
 
     if filtered_papers:
-        cache_results(cache_key, (filtered_papers, total, accuracy, inflated))
+        cache_results(cache_key, (filtered_papers, total, inflated))
 
         return jsonify(
             {
                 "papers": filtered_papers,
                 "total": total,
-                "accuracy": accuracy,
                 "inflated": inflated,
             }
         ), 200

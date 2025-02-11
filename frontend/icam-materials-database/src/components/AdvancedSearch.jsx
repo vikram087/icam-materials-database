@@ -1,30 +1,30 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import "../styles/filters.css";
 
 function AdvancedSearch({
-	searchParams,
 	searchTerms,
 	setSearchTerms,
 	terms,
-	toggleReset,
+	sortVal,
+	query,
+	setQuery,
 }) {
-	const termsArray = searchParams.searches.map((search) => search.term);
-
-	const [query, setQuery] = useState(termsArray || ["all"]);
-
 	useEffect(() => {
-		setSearchTerms(
-			searchParams.searches || [
-				{
-					id: 1,
-					term: "all",
-					field: terms[0],
-					operator: "AND",
-					isVector: false,
-				},
-			],
-		);
-	}, [toggleReset]);
+		if (
+			terms[0] === "Material" ||
+			query[0] === "all" ||
+			sortVal !== "Most-Relevant" ||
+			searchTerms.some(
+				(val, index) =>
+					val.field === "Authors" ||
+					(val.field === "Category" && searchTerms[index].isVector === true),
+			)
+		) {
+			searchTerms.map((search) => {
+				search.isVector = false;
+			});
+		}
+	}, [terms, query, sortVal, searchTerms]);
 
 	useEffect(() => {
 		setSearchTerms((prev) =>
@@ -39,7 +39,6 @@ function AdvancedSearch({
 		setSearchTerms((prev) => [
 			...prev,
 			{
-				id: prev.length + 1,
 				term: "",
 				field: terms[0],
 				operator: "AND",
@@ -50,21 +49,23 @@ function AdvancedSearch({
 
 	const updateSearchTerm = (id, key, value) => {
 		setSearchTerms((prev) =>
-			prev.map((item) => (item.id === id ? { ...item, [key]: value } : item)),
+			prev.map((item, index) =>
+				index === id ? { ...item, [key]: value } : item,
+			),
 		);
 	};
 
 	const removeSearchTerm = (id) => {
-		setSearchTerms((prev) => prev.filter((item) => item.id !== id));
+		setSearchTerms((prev) => prev.filter((_, index) => index !== id));
+		setQuery((prev) => prev.filter((_, index) => index !== id));
 	};
 
 	const toggleVectorSearch = (id) => {
 		setSearchTerms((prev) =>
-			prev.map(
-				(item) =>
-					item.id === id
-						? { ...item, isVector: !item.isVector } // flip it
-						: { ...item, isVector: false }, // or false if not the clicked row
+			prev.map((item, index) =>
+				index === id
+					? { ...item, isVector: !item.isVector }
+					: { ...item, isVector: false },
 			),
 		);
 	};
@@ -82,7 +83,7 @@ function AdvancedSearch({
 			<h3>Advanced Search</h3>
 			{searchTerms.map((item, index) => (
 				<div
-					key={`${item.id}_${item.term}_${item.field}`}
+					key={`${index}_${item.term}_${item.field}`}
 					className="as-search-row"
 				>
 					{/* Operator for rows after the first */}
@@ -90,7 +91,7 @@ function AdvancedSearch({
 						<ASearchDropdown
 							options={["AND", "OR", "NOT"]}
 							value={item.operator}
-							onChange={(value) => updateSearchTerm(item.id, "operator", value)}
+							onChange={(value) => updateSearchTerm(index, "operator", value)}
 						/>
 					)}
 
@@ -98,26 +99,37 @@ function AdvancedSearch({
 					<input
 						type="text"
 						className="as-search-input"
-						placeholder={`Search term #${item.id}`}
+						placeholder={`Search term #${index + 1}`}
 						value={query[index] ?? ""}
 						onChange={(e) => changeQuery(e.target.value, index)}
-						onBlur={(e) => updateSearchTerm(item.id, "term", e.target.value)}
+						onBlur={(e) => updateSearchTerm(index, "term", e.target.value)}
 					/>
 
 					{/* Field Dropdown (Abstract, Title, etc.) */}
 					<ASearchDropdown
 						options={terms}
 						value={item.field}
-						onChange={(value) => updateSearchTerm(item.id, "field", value)}
+						onChange={(value) => updateSearchTerm(index, "field", value)}
 					/>
 
 					{/* Vector Search Checkbox */}
 					<label className="vector-search-label">
 						<input
 							type="checkbox"
-							disabled={terms[0] === "Material" || query[0] === "all"}
-							checked={item.isVector}
-							onChange={() => toggleVectorSearch(item.id)}
+							disabled={
+								terms[0] === "Material" ||
+								query[0] === "all" ||
+								sortVal !== "Most-Relevant" ||
+								searchTerms[index].field === "Authors" ||
+								searchTerms[index].field === "Category"
+							}
+							checked={
+								item.isVector &&
+								sortVal === "Most-Relevant" &&
+								searchTerms[index].field !== "Authors" &&
+								searchTerms[index].field !== "Category"
+							}
+							onChange={() => toggleVectorSearch(index)}
 						/>
 						Vector
 					</label>
@@ -127,7 +139,7 @@ function AdvancedSearch({
 						<button
 							type="button"
 							className="remove-term-btn"
-							onClick={() => removeSearchTerm(item.id)}
+							onClick={() => removeSearchTerm(index)}
 						>
 							&times;
 						</button>
@@ -140,13 +152,22 @@ function AdvancedSearch({
 					type="button"
 					className="add-term-btn"
 					onClick={addSearchTerm}
-					disabled={query[0] === "all"}
+					disabled={
+						query[0] === "all" ||
+						query[0]?.trim() === "" ||
+						query.some((val, index) => val.trim() === "all" && index !== 0)
+					}
 				>
 					+ Add Term
 				</button>
-				{query[0] === "all" && (
+				{query[0].trim() === "all" && (
 					<span style={{ marginLeft: 10 }}>
 						Cannot add new terms or vector search with keyword "all"
+					</span>
+				)}
+				{query.some((val, index) => val.trim() === "all" && index !== 0) && (
+					<span style={{ marginLeft: 10 }}>
+						Keyword "all" must be first term
 					</span>
 				)}
 			</div>

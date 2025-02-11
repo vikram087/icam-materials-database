@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "../styles/search.css";
+import Tooltip from "./Tooltip";
 
 function Search({ searchParams, to, options }) {
 	const location = useLocation();
@@ -8,25 +9,16 @@ function Search({ searchParams, to, options }) {
 	useEffect(() => {
 		const query = new URLSearchParams(location.search);
 		const searchQuery = query.get("searches");
-		let hide = query.get("advanced");
-
-		if (hide === "false") {
-			hide = false;
-		} else {
-			hide = true;
-		}
 
 		let val;
 		if (searchQuery) {
 			val = JSON.parse(decodeURIComponent(searchQuery))[0]?.field;
 		}
 		setTermVal(val || searchParams.searches[0]?.field || "Abstract");
-		setHidden(hide || false);
 	}, [location.search, searchParams.searches]);
 
 	const [inputValue, setInputValue] = useState("");
 	const [termVal, setTermVal] = useState("Abstract");
-	const [hidden, setHidden] = useState(false);
 
 	const navigate = useNavigate();
 
@@ -56,7 +48,7 @@ function Search({ searchParams, to, options }) {
 		navigate(
 			`${to}?page=1&per_page=${searchParams.per_page}` +
 				`&sort=${searchParams.sorting}` +
-				`&date=${searchParams.date}&advanced=false&searches=${advStr}`,
+				`&date=${searchParams.date}&searches=${advStr}`,
 		);
 	};
 
@@ -207,22 +199,26 @@ function Search({ searchParams, to, options }) {
 						))}
 					</select>
 				</div>
-				<button
-					type="button"
-					onClick={() => navigate("/advanced")}
-					style={{
-						padding: "10px 20px",
-						backgroundColor: "#007bff",
-						color: "#fff",
-						border: "none",
-						borderRadius: "4px",
-						cursor: "pointer",
-						marginTop: "15px",
-						width: "fit-content",
-					}}
-				>
-					Advanced Search
-				</button>
+				<span>
+					<button
+						type="button"
+						onClick={() => navigate("/advanced")}
+						style={{
+							padding: "10px 20px",
+							backgroundColor: "#007bff",
+							color: "#fff",
+							border: "none",
+							borderRadius: "4px",
+							cursor: "pointer",
+							marginTop: "15px",
+							width: "fit-content",
+							marginRight: 10,
+						}}
+					>
+						Advanced Search
+					</button>
+					<Tooltip text={"Search with more refined queries"} />
+				</span>
 			</div>
 		</div>
 	);

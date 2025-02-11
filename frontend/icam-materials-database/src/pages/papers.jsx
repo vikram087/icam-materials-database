@@ -15,7 +15,6 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 	const [expandedIndex, setExpandedIndex] = useState(-1);
 	const [total, setTotal] = useState(0);
 	const [loading, setLoading] = useState(true);
-	const [accuracy, setAccuracy] = useState({});
 	const [time, setTime] = useState("");
 	const [highlightedStars, setHighlightedStars] = useState([]);
 	const [inflated, setInflated] = useState(-1);
@@ -67,7 +66,6 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 				setExpandedIndex(-1);
 				setPapers(data.papers);
 				setTotal(data.total);
-				setAccuracy(data.accuracy);
 				setPageCount(Math.ceil(data.total / searchParams.per_page));
 				setInflated(data.inflated);
 			})
@@ -75,7 +73,6 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 				setExpandedIndex(-1);
 				setTotal(0);
 				setPapers([]);
-				setAccuracy({});
 				setPageCount(0);
 				setInflated(-1);
 			});
@@ -132,7 +129,7 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 		navigate(
 			`?page=${page}&per_page=${searchParams.per_page}` +
 				`&sort=${searchParams.sorting}` +
-				`&${searchParams.date}&advanced=${searchParams.advanced}&searches=${advStr}`,
+				`&${searchParams.date}&searches=${advStr}`,
 		);
 	};
 
@@ -236,13 +233,6 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 								}
 								key={`${paper.id}_papers_body`}
 							>
-								{accuracy[paper.id] != null &&
-									Number(accuracy[paper.id]) !== 0 && (
-										<div style={{ paddingBottom: "3px" }}>
-											Query Match Accuracy:{" "}
-											{(accuracy[paper.id] * 100).toFixed(1)}%
-										</div>
-									)}
 								<div className="title-container">
 									<button
 										type="button"

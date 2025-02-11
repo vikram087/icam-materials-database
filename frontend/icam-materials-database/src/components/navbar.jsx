@@ -27,8 +27,8 @@ function NavBar() {
 		]),
 	);
 
-	const papers = `/papers?page=1&per_page=20&sort=Most-Relevant&date=00000000-${now}&advanced=false&searches=${advStrP}`;
-	const material = `/properties?page=1&per_page=20&sort=Most-Relevant&date=00000000-${now}&advanced=false&searches=${advStrM}`;
+	const papers = `/papers?page=1&per_page=20&sort=Most-Relevant&date=00000000-${now}&searches=${advStrP}`;
+	const material = `/properties?page=1&per_page=20&sort=Most-Relevant&date=00000000-${now}&searches=${advStrM}`;
 
 	return (
 		<nav className="navbar">

@@ -28,7 +28,7 @@ function HomePage() {
 		);
 
 		navigate(
-			`${page}?page=1&per_page=20&sort=Most-Relevant&date=00000000-${now}&advanced=false&searches=${advStr}`,
+			`${page}?page=1&per_page=20&sort=Most-Relevant&date=00000000-${now}&searches=${advStr}`,
 		);
 		window.scrollTo({ top: 0, behavior: "smooth" });
 	};
