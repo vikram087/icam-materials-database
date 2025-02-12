@@ -170,6 +170,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+
   models:
     container_name: models
     platform: linux/amd64
@@ -189,6 +190,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+
   backend:
     container_name: backend
     build:
@@ -219,6 +221,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+
   api-key-setup:
     container_name: api-key-setup
     image: alpine
@@ -259,19 +262,14 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "4173:4173"
+      - "80:80"
     networks:
       - app-network
     environment:
       VITE_BACKEND_URL: ${VITE_BACKEND_URL}
       VITE_API_KEY: ${SERVER_API_KEY}
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:4173 || exit 1" ]
+      test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
-    command: >
-      sh -c '
-        npm run build
-        npm run preview
-      '

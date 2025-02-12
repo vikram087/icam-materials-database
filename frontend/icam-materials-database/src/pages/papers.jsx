@@ -18,6 +18,7 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 	const [time, setTime] = useState("");
 	const [highlightedStars, setHighlightedStars] = useState([]);
 	const [inflated, setInflated] = useState(-1);
+	const [searchQuery, setSearchQuery] = useState("");
 
 	const navigate = useNavigate();
 
@@ -99,6 +100,9 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 			date: date,
 			searches: searches,
 		});
+
+		console.log(searches);
+		setSearchQuery(parseSearchQuery(searches));
 
 		const startTime = performance.now();
 
@@ -190,6 +194,23 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 		return `${day} ${month} ${year}`;
 	};
 
+	function parseSearchQuery(conditions) {
+		return conditions
+			.map(({ term, field, operator, isVector }) => {
+				let prefix = "";
+				if (isVector) {
+					prefix = "VECTOR";
+				} else if (operator === "") {
+					prefix = "AND ";
+				} else {
+					prefix = operator;
+				}
+
+				return `(${prefix} ${field.toLowerCase()}: ${term})`;
+			})
+			.join(" ");
+	}
+
 	const chooseBody = () => {
 		if (!loading && total === 0) {
 			return (
@@ -216,7 +237,7 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 									? "Results are Limited to the first 10,000 matching documents"
 									: ""}
 							</p>
-							{/* <b>Displaying Results for: "{searchParams.query}"</b> */}
+							<b>Displaying Results for: "{searchQuery}"</b>
 							{inflated !== -1 && (
 								<p>
 									Not many relevant papers, expanding from {inflated} to 100

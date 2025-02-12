@@ -19,7 +19,7 @@ function HomePage() {
 		const advStr = encodeURIComponent(
 			JSON.stringify([
 				{
-					term: "all",
+					term: quer,
 					field: term,
 					isVector: false,
 					operator: "AND",

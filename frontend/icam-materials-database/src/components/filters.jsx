@@ -202,8 +202,8 @@ function Filters({ searchParams }) {
 						<h3>Advanced Search Guide</h3>
 						<ul>
 							<li>
-								Enter a search term and select a field (e.g., Abstract, Title,
-								Authors).
+								Enter a search term and select a field (e.g.,
+								<strong>Abstract, Title, Authors</strong>).
 							</li>
 							<li>
 								Use logical operators (<strong>AND, OR, NOT</strong>) to refine
@@ -214,8 +214,9 @@ function Filters({ searchParams }) {
 								(only one term allowed).
 							</li>
 							<li>
-								You cannot use Vector Search with “all” or for Authors/Category
-								fields.
+								You cannot use <strong>Vector Search</strong> with query{" "}
+								<strong>“all”</strong>, for <strong>Authors/Category</strong>{" "}
+								fields, and for any operator besides <strong>AND</strong>.
 							</li>
 							<li>
 								The <strong>“all”</strong> keyword must be the first and only

@@ -16,6 +16,7 @@ function Table({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 	const [pageCount, setPageCount] = useState(0);
 	const [highlightedStars, setHighlightedStars] = useState({});
 	const [expandedIndex, setExpandedIndex] = useState(-1);
+	const [searchQuery, setSearchQuery] = useState("");
 
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -65,6 +66,8 @@ function Table({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 			date: date,
 			searches: searches,
 		});
+
+		setSearchQuery(parseSearchQuery(searches));
 
 		const startTime = performance.now();
 
@@ -116,6 +119,23 @@ function Table({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 				setPageCount(0);
 			});
 	};
+
+	function parseSearchQuery(conditions) {
+		return conditions
+			.map(({ term, field, operator, isVector }) => {
+				let prefix = "";
+				if (isVector) {
+					prefix = "VECTOR";
+				} else if (operator === "") {
+					prefix = "AND ";
+				} else {
+					prefix = operator;
+				}
+
+				return `(${prefix} ${field.toLowerCase()}: ${term})`;
+			})
+			.join(" ");
+	}
 
 	const handlePageClick = (pageNumber) => {
 		setPapers([]);
@@ -185,7 +205,7 @@ function Table({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 									? "Results are Limited to the first 10,000 matching documents"
 									: ""}
 							</p>
-							{/* <b>Displaying Results for: "{searchParams.query}"</b> */}
+							<b>Displaying Results for: "{searchQuery}"</b>
 						</div>
 					</div>
 					{!loading ? (

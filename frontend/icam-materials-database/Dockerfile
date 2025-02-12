@@ -1,16 +1,26 @@
-# Use Node slim image
-FROM node:18-slim
+# Base image with Node (for building) + Alpine Linux
+FROM node:18-alpine
 
-# Set working directory
+# Install Nginx
+RUN apk add --no-cache nginx
+
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Create a working directory for our app source code
 WORKDIR /app
 
-RUN apt update && apt install -y curl && rm -rf /var/lib/apt/lists/*
-
-# Copy only package.json and package-lock.json first for caching
-COPY package*.json ./
-
-# Install dependencies
+# Copy package.json and package-lock.json (if any), then install deps
+COPY package*.json /app/
 RUN npm install
 
-# Copy the rest of the application files
-COPY . .
+# Copy the rest of the frontend source code
+COPY . /app/
+
+# Expose port 80 inside the container
+EXPOSE 80
+
+# The container's startup command:
+# 1) Build the app with environment variables available at runtime
+# 2) Copy the built files to Nginx’s web directory
+# 3) Start Nginx in the foreground
+CMD ["sh", "-c", "npm run build && cp -R dist /usr/share/nginx/html && nginx -g 'daemon off;'"]

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from datetime import datetime
 from typing import Mapping, Sequence
@@ -29,6 +30,15 @@ CORS(
 )
 model: SentenceTransformer = SentenceTransformer("all-MiniLM-L6-v2")
 
+gunicorn_logger = logging.getLogger("gunicorn.error")
+app.logger.handlers = gunicorn_logger.handlers
+app.logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter(
+    "%(asctime)s [%(levelname)s] %(filename)s:%(lineno)d - %(message)s"
+)
+for handler in gunicorn_logger.handlers:
+    handler.setFormatter(formatter)
+
 redis_host = "redis" if DOCKER == "true" else "localhost"
 try:
     redis_client: Redis = redis.StrictRedis(
@@ -37,6 +47,7 @@ try:
     redis_client.ping()
     redis_success = True
 except redis.exceptions.ConnectionError:
+    gunicorn_logger.exception("Failed to connect to redis")
     redis_success = False
 
 
@@ -254,7 +265,7 @@ def handle_bool_searching(
 
 def req_validation(page: int, num_results: int, sorting: str) -> str | None:
     if page < 0:
-        print("Pages less than 0, returning None")
+        gunicorn_logger.error("Pages less than 0, returning None")
         return None
     if num_results < 0 or (
         num_results != 10
@@ -262,14 +273,14 @@ def req_validation(page: int, num_results: int, sorting: str) -> str | None:
         and num_results != 50
         and num_results != 100
     ):
-        print("num_results invalid, returning None")
+        gunicorn_logger.error("num_results invalid, returning None")
         return None
     if sorting == "Most-Recent" or sorting == "Most-Relevant":
         sort: str = "desc"
     elif sorting == "Oldest-First":
         sort = "asc"
     else:
-        print("sorting invalid, returning None")
+        gunicorn_logger.error("sorting invalid, returning None")
         return None
 
     return sort
@@ -548,6 +559,7 @@ def papers() -> tuple[Response, int]:
         # returning None for invalid req
         sort: str | None = req_validation(page, num_results, sorting)
         if sort is None:
+            logging.error("Request failed to validate")
             return jsonify(None), 500
 
         # constructing/querying cache
@@ -568,7 +580,7 @@ def papers() -> tuple[Response, int]:
                     {
                         "papers": cached[0],
                         "total": cached[1],
-                        "inflated": cached[3],
+                        "inflated": cached[2],
                     }
                 ), 200
 
@@ -585,12 +597,12 @@ def papers() -> tuple[Response, int]:
             searches, start_date, end_date, sorting
         )
         if all_query is None or quer is None:
-            print("Failed to bool search")
+            gunicorn_logger.error("Failed to bool search")
             return jsonify(None), 500
 
         # which type of search
         if vector_field is None or vector_query is None or all_query:
-            # print("REGULAR")
+            gunicorn_logger.info("Regular search")
             inflated, filtered_papers, total = handle_regular_search(
                 quer,
                 num_results,
@@ -599,7 +611,7 @@ def papers() -> tuple[Response, int]:
                 sorting,
             )
         else:
-            # print("VECTOR")
+            gunicorn_logger.info("Vector search")
             inflated, filtered_papers, total = handle_vector_search(
                 num_results,
                 vector_field,
@@ -611,7 +623,7 @@ def papers() -> tuple[Response, int]:
             )
 
         if inflated is None or filtered_papers is None or total is None:
-            print("No hits")
+            gunicorn_logger.error("No hits")
             return jsonify(None), 500
 
         # cache and return, else error
@@ -628,7 +640,7 @@ def papers() -> tuple[Response, int]:
         else:
             return jsonify({"error": "No results found"}), 404
     except Exception as e:
-        print(e)
+        gunicorn_logger.exception(e)
         return jsonify(None), 500
 
 

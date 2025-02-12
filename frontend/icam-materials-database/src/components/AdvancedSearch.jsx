@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import "../styles/filters.css";
 
 function AdvancedSearch({
@@ -20,6 +21,24 @@ function AdvancedSearch({
 		"Property",
 		"Application",
 	];
+
+	useEffect(() => {
+		setSearchTerms((prev) => {
+			const updatedTerms = prev.map((termObj) => ({
+				...termObj,
+				isVector: termObj.isVector
+					? (termObj.field === "Abstract" || termObj.field === "Title") &&
+						termObj.operator === "AND" &&
+						termObj.term !== "all"
+					: false,
+			}));
+
+			if (JSON.stringify(updatedTerms) !== JSON.stringify(prev)) {
+				return updatedTerms;
+			}
+			return prev;
+		});
+	}, [searchTerms]);
 
 	const addSearchTerm = () => {
 		setSearchTerms((prev) => [
@@ -106,13 +125,15 @@ function AdvancedSearch({
 								query[0] === "all" ||
 								sortVal !== "Most-Relevant" ||
 								(searchTerms[index].field !== "Abstract" &&
-									searchTerms[index].field !== "Title")
+									searchTerms[index].field !== "Title") ||
+								searchTerms[index].operator !== "AND"
 							}
 							checked={
 								item.isVector &&
 								sortVal === "Most-Relevant" &&
 								(searchTerms[index].field === "Title" ||
-									searchTerms[index].field === "Abstract")
+									searchTerms[index].field === "Abstract") &&
+								searchTerms[index].operator === "AND"
 							}
 							onChange={() => toggleVectorSearch(index)}
 						/>

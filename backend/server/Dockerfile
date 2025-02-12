@@ -15,4 +15,10 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # Copy the rest of the application files
 COPY . /app/
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "server:app"]
+CMD ["gunicorn", "server:app", \
+    "-b", "0.0.0.0:8080", \
+    "--access-logfile", "-", \
+    "--error-logfile", "-", \
+    "--log-level", "debug", \
+    "--capture-output", \
+    "--enable-stdio-inheritance"]
