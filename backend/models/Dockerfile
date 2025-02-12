@@ -26,8 +26,6 @@ RUN /app/venv/bin/cde data download
 # Copy the rest of the application files
 COPY . /app/
 
-RUN chmod +x /app/start.sh
-
 # Set entrypoint to use virtualenv and run the script
 # CMD ["/app/venv/bin/gunicorn", "--bind", "0.0.0.0:8000", "annotate_texts:app"]
 CMD ["/app/start.sh"]

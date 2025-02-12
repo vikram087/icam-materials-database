@@ -74,6 +74,9 @@ Create a `.env` file to define environment variables required for the stack conf
 
    # api key for models
    MODELS_API_KEY=your-api-key
+
+   # enter your domain here, or empty/localhost for dev
+   DOMAIN=your-domain
    ```
 
    > Note: You can use `openssl rand -hex 32` to generate random api keys

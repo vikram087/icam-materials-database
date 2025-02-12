@@ -263,13 +263,18 @@ services:
         condition: service_healthy
     ports:
       - "80:80"
+    volumes:
+      - ./certbot-etc:/etc/letsencrypt
+      - ./certbot-var:/var/lib/letsencrypt
+      - ./nginx-logs:/var/log/nginx
     networks:
       - app-network
     environment:
       VITE_BACKEND_URL: ${VITE_BACKEND_URL}
       VITE_API_KEY: ${SERVER_API_KEY}
+      DOMAIN: ${DOMAIN}
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
+      test: [ "CMD-SHELL", "curl -f http://${DOMAIN:-localhost}:80 || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3

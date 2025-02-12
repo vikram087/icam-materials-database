@@ -1,8 +1,7 @@
-# Base image with Node (for building) + Alpine Linux
 FROM node:18-alpine
 
 # Install Nginx
-RUN apk add --no-cache nginx
+RUN apk add --no-cache nginx certbot certbot-nginx
 
 COPY nginx.conf /etc/nginx/nginx.conf
 
@@ -23,4 +22,4 @@ EXPOSE 80
 # 1) Build the app with environment variables available at runtime
 # 2) Copy the built files to Nginx’s web directory
 # 3) Start Nginx in the foreground
-CMD ["sh", "-c", "npm run build && cp -R dist /usr/share/nginx/html && nginx -g 'daemon off;'"]
+CMD ["/app/start.sh"]
