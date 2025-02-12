@@ -2,15 +2,10 @@ import os
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
-from flask_cors import CORS
 
 load_dotenv()
 
 app: Flask = Flask(__name__)
-CORS(
-    app,
-    allow_headers=["Content-Type", "Authorization"],
-)
 
 
 @app.before_request
@@ -18,23 +13,11 @@ def require_api_key():
     if request.endpoint == "health":
         return None
 
-    if request.method == "OPTIONS":
-        return _cors_preflight_response()
-
     auth_response = check_api_key(request)
     if auth_response is not None:
         return auth_response
 
     return None
-
-
-def _cors_preflight_response():
-    """Handles CORS preflight OPTIONS requests."""
-    response = jsonify({"success": True})
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    response.headers.add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-    response.headers.add("Access-Control-Allow-Headers", "Authorization, Content-Type")
-    return response
 
 
 def check_api_key(request):

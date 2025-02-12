@@ -8,12 +8,10 @@ import urllib.request as libreq
 from argparse import Namespace
 
 import feedparser  # type: ignore
-import redis
 import requests
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
 from feedparser import FeedParserDict
-from redis import Redis
 from sentence_transformers import SentenceTransformer  # type: ignore
 
 program_name: str = """
@@ -50,11 +48,6 @@ logging.getLogger("root").setLevel(logging.INFO)
 
 model: SentenceTransformer = SentenceTransformer("all-MiniLM-L6-v2")
 
-redis_host = "redis" if DOCKER == "true" else "localhost"
-redis_client: Redis = redis.StrictRedis(
-    host=redis_host, port=6379, db=0, decode_responses=True
-)
-
 
 def set_parser(
     program_name: str,
@@ -85,14 +78,6 @@ def set_parser(
         default=50,
         type=int,
         help="[Optional] Number of papers to fetch from arXiv (max 2000, min 1)\nDefault: 50",
-    )
-    parser.add_argument(
-        "-f",
-        "--flush-all",
-        required=False,
-        default=False,
-        action="store_true",
-        help="[Optional] Enabling flag flushes redis DB after papers added\nDefault: False",
     )
     parser.add_argument(
         "-b",
@@ -441,10 +426,6 @@ def main() -> None:
 
     upload_to_es()
 
-    if flush_all is True:
-        redis_client.flushall()
-        logging.info("Redis DB cleared")
-
 
 if __name__ == "__main__":
     parser: argparse.ArgumentParser = set_parser(
@@ -462,7 +443,6 @@ if __name__ == "__main__":
     sleep_after_rate_limit: int = args.sleep_after_rate_limit
     sleep_between_calls: int = args.sleep_between_calls
     drop_batches: bool = args.drop_batches
-    flush_all: bool = args.flush_all
     output: str = args.output
     no_es: str = args.no_es
     arxiv_start: int = args.start

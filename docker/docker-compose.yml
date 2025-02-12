@@ -89,11 +89,11 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
     labels:
       co.elastic.logs/module: elasticsearch
+    ports:
+      - ${ES_PORT}:9200
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
       - esdata01:/usr/share/elasticsearch/data
-    ports:
-      - ${ES_PORT}:9200
     environment:
       - node.name=es01
       - cluster.name=${CLUSTER_NAME}
@@ -135,8 +135,6 @@ services:
     volumes:
       - certs:/usr/share/kibana/config/certs
       - kibanadata:/usr/share/kibana/data
-    ports:
-      - ${KIBANA_PORT}:5601
     environment:
       - SERVERNAME=kibana
       - ELASTICSEARCH_HOSTS=https://es01:9200
@@ -147,6 +145,7 @@ services:
       - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${ENCRYPTION_KEY}
       - XPACK_REPORTING_ENCRYPTIONKEY=${ENCRYPTION_KEY}
       - SERVER_PUBLICBASEURL=${KIBANA_URL}
+      - SERVER_BASEPATH=${KIBANA_BASE_PATH}
     mem_limit: ${KB_MEM_LIMIT}
     healthcheck:
       test: [ "CMD-SHELL", "curl -s -I http://localhost:5601 | grep -q 'HTTP/1.1 302 Found'" ]
@@ -159,8 +158,6 @@ services:
   redis:
     container_name: redis
     image: redis:latest
-    ports:
-      - "6379:6379"
     networks:
       - app-network
     volumes:
@@ -177,8 +174,6 @@ services:
     build:
       context: ../backend/models
     image: vikrampen/icam-models:latest
-    ports:
-      - "8000:8000"
     volumes:
       - model-data:/app/lbnlp/models/pkg
     environment:
@@ -203,8 +198,6 @@ services:
         condition: service_healthy
       api-key-setup:
         condition: service_healthy
-    ports:
-      - "8080:8080"
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
       - api-key:/app/env
@@ -275,7 +268,7 @@ services:
       VITE_API_KEY: ${SERVER_API_KEY}
       DOMAIN: ${DOMAIN}
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://${DOMAIN:-localhost}:80 || exit 1" ]
+      test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3

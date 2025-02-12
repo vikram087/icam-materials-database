@@ -51,6 +51,7 @@ if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "localhost" ]; then
             proxy_set_header Host \$host;
             proxy_set_header X-Real-IP \$remote_addr;
             proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
 
             add_header Access-Control-Allow-Origin "*" always;
             add_header Access-Control-Allow-Methods "GET,POST,OPTIONS" always;
@@ -59,6 +60,43 @@ if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "localhost" ]; then
             if (\$request_method = OPTIONS) {
                 return 204;
             }
+        }
+
+        location /models {
+            proxy_pass http://models:8000;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+
+            add_header Access-Control-Allow-Origin "*" always;
+            add_header Access-Control-Allow-Methods "GET,POST,OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Authorization,Content-Type" always;
+
+            if (\$request_method = OPTIONS) {
+                return 204;
+            }
+        }
+
+        location /kibana/ {
+            proxy_pass http://kibana:5601/;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_redirect off;
+        }
+
+        location /es01/ {
+            proxy_pass https://es01:9200/;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_redirect off;
         }
     }
 }
@@ -108,6 +146,7 @@ else
             proxy_set_header Host \$host;
             proxy_set_header X-Real-IP \$remote_addr;
             proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
 
             add_header Access-Control-Allow-Origin "*" always;
             add_header Access-Control-Allow-Methods "GET,POST,OPTIONS" always;
@@ -117,6 +156,47 @@ else
                 return 204;
             }
         }
+
+        # self signed certs in dev don't work with curl unless you use -k flag
+
+        # location /models/ {
+        #     proxy_pass http://models:8000;
+        #     proxy_http_version 1.1;
+        #     proxy_set_header Host \$host;
+        #     proxy_set_header X-Real-IP \$remote_addr;
+        #     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        #     proxy_set_header X-Forwarded-Proto https;
+
+        #     add_header Access-Control-Allow-Origin "*" always;
+        #     add_header Access-Control-Allow-Methods "GET,POST,OPTIONS" always;
+        #     add_header Access-Control-Allow-Headers "Authorization,Content-Type" always;
+
+        #     if (\$request_method = OPTIONS) {
+        #         return 204;
+        #     }
+        # }
+
+        location /kibana/ {
+            proxy_pass http://kibana:5601/;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_redirect off;
+        }
+
+        # self signed certs in dev don't work with curl unless you use -k flag        
+
+        # location /es01/ {
+        #     proxy_pass https://es01:9200/;
+        #     proxy_http_version 1.1;
+        #     proxy_set_header Host \$host;
+        #     proxy_set_header X-Real-IP \$remote_addr;
+        #     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        #     proxy_set_header X-Forwarded-Proto https;
+        #     proxy_redirect off;
+        # }
     }
 }
 EOF

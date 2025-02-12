@@ -61,7 +61,7 @@ for chunk in "$SCRIPT_DIR"/chunk_*.ndjson; do
     echo "Uploading chunk: $chunk"
 
     response=$(curl --silent --write-out "%{http_code}" --cacert "$SCRIPT_DIR/ca.crt" \
-        -X POST "https://localhost:9200/_bulk" \
+        -X POST "$ES_URL/_bulk" \
         -H "Content-Type: application/x-ndjson" \
         -H "Authorization: ApiKey $API_KEY_INPUT" \
         --data-binary "@$chunk")
@@ -77,8 +77,10 @@ for chunk in "$SCRIPT_DIR"/chunk_*.ndjson; do
     rm "$chunk"  # Remove chunk after successful upload
 done
 
+# if you want to use reverse proxy on dev with self-signed certs
+# remove --cacert flag and replace with -k flag
 echo -e "\nChecking document count...\n"
-curl --cacert "$SCRIPT_DIR/ca.crt" -X GET "https://localhost:9200/search-papers-meta/_count?pretty" \
+curl --cacert "$SCRIPT_DIR/ca.crt" -X GET "$ES_URL/search-papers-meta/_count?pretty" \
      -H "Authorization: ApiKey $API_KEY_INPUT"
 
 echo "Bulk upload completed successfully!"
