@@ -115,9 +115,9 @@ pip install -r requirements-matscholar-relevance.txt
 
 ### 2. Set up `.env` File
 
-Create a `.env` file for the models. Replace `your-api-key` with the API key you obtain from running `openssl rand -hex 32`.
+Create a `.env` file for the models. Replace `your-models-api-key` with the API key you obtain from running `openssl rand -hex 32`.
 
    ```ini
    # api key for models
-   MODELS_API_KEY=your-api-key
+   MODELS_API_KEY=your-models-api-key
    ```

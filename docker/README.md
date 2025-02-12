@@ -2,7 +2,6 @@
 
 This guide provides steps for setting up the project using Docker Compose. The setup of elasticsearch is based on the Elastic blog article [Getting Started with the Elastic Stack and Docker Compose](https://www.elastic.co/blog/getting-started-with-the-elastic-stack-and-docker-compose).
 
-> Note: If you want to use prebuilt images, comment out build and context for the models, backend, and frontend, containers and uncomment the image: ... lines.
 
 ## Table of Contents
 - [Setup](#setup)
@@ -31,52 +30,35 @@ Clone the repo and navigate to the config directory
 Create a `.env` file to define environment variables required for the stack configuration.
 
    ```ini
-   # Project namespace (defaults to the current folder name if not set)
-   COMPOSE_PROJECT_NAME=myproject
+   ## DEV
 
-   # Password for the 'elastic' user (at least 6 characters)
-   ELASTIC_PASSWORD=changeme
+   VITE_BACKEND_URL=https://localhost/api
+   DOMAIN=localhost
+   KIBANA_URL=https://localhost/kibana
 
-   # Password for the 'kibana_system' user (at least 6 characters)
-   KIBANA_PASSWORD=changeme
+   ## PROD
 
-   # Version of Elastic products
+   VITE_BACKEND_URL=https://DOMAIN/api
+   DOMAIN=DOMAIN
+   KIBANA_URL=https:///DOMAIN/kibana
+
+   ## BOTH
+
+   COMPOSE_PROJECT_NAME=icam
+   ELASTIC_PASSWORD=your-elastic-password
+   KIBANA_PASSWORD=your-kibana-password
    STACK_VERSION=8.15.0
-
-   # Set the cluster name
-   CLUSTER_NAME=docker-cluster
-
-   # Set to 'basic' or 'trial' to automatically start the 30-day trial
+   CLUSTER_NAME=ICAM
    LICENSE=basic
-
-   # Ports
    ES_PORT=9200
    KIBANA_PORT=5601
-
-   # Memory limits
-   ES_MEM_LIMIT=1073741824
+   ES_MEM_LIMIT=2147483648
    KB_MEM_LIMIT=1073741824
-
-   # Encryption key (for POC environments only, if using, please change)
-   ENCRYPTION_KEY=c34d38b3a14956121ff2170e5030b471551370178f43e5626eec58b04a30fae2
-
-   # Url of your backend (if you are on a cloud instance, ensure you use its public DNS/IP for this)
-   VITE_BACKEND_URL=http://localhost:8080
-
-   # url for kibana, will be http://localhost:5601 for dev
-   KIBANA_URL=http://localhost:5601
-
-   # name of index you want to use
-   INDEX=name-of-index
-
-   # api key for server
-   SERVER_API_KEY=your-api-key
-
-   # api key for models
-   MODELS_API_KEY=your-api-key
-
-   # enter your domain here, or empty/localhost for dev
-   DOMAIN=your-domain
+   ENCRYPTION_KEY=your-encryption-key
+   INDEX=your-index
+   SERVER_API_KEY=your-server-api-key
+   MODELS_API_KEY=your-models-api-key
+   KIBANA_BASE_PATH=/kibana
    ```
 
    > Note: You can use `openssl rand -hex 32` to generate random api keys
@@ -99,7 +81,7 @@ Start the Docker container.
 
 ### 5. Access Kibana (optional)
 
-After starting the Docker container, you can access Kibana at `http://localhost:5601`. Log in with:
+After starting the Docker container, you can access Kibana at `https://localhost/api`. Log in with:
 
    - **Username**: `elastic`
    - **Password**: the `ELASTIC_PASSWORD` from your `.env` file
@@ -116,8 +98,6 @@ To stop the container, run:
 ## Troubleshooting
 
 - **Elasticsearch fails to start**: Ensure your machine has at least 4GB of free memory. You may need to adjust the memory limits in the `.env` file.
-- **Kibana not accessible**: Verify the `KIBANA_PORT` (default is `5601`) is open on your system.
-- NEED TO COPY CA.CRT
 
 ## Next Steps
 

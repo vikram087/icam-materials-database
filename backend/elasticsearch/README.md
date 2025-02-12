@@ -58,8 +58,10 @@ Create a `.env` file to define environment variables required for the stack conf
    KB_MEM_LIMIT=1073741824
 
    # Encryption key (for POC environments only, if using, please change)
-   ENCRYPTION_KEY=c34d38b3a14956121ff2170e5030b471551370178f43e5626eec58b04a30fae2
+   ENCRYPTION_KEY=your-encryption-key
    ```
+
+   > Note: You can use `openssl rand -hex 32` to generate random api keys
 
 ### 3. Install Docker
 

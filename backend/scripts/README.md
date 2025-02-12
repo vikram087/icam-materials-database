@@ -30,23 +30,22 @@ Clone the repository containing the script code, then navigate to the `scripts` 
 ### 2. Set up `.env` File
 
    ```ini
-    # API key for Elasticsearch
-    API_KEY=YOUR_API_KEY_HERE
+   ## BOTH
 
-    # url for elasticsearch, defaults to https://localhost:9200
-    ES_URL=https://localhost:9200
+   API_KEY=your-es-api-key
+   DOCKER=false
+   INDEX=your-index
+   MODELS_API_KEY=your-models-api-key
 
-    # url for the NLP server to annotate texts
-    LBNLP_URL=http://localhost:8000
+   ## DEV
 
-    # hard coded value
-    DOCKER=false
+   ES_URL=https://localhost:9200
+   LBNLP_URL=http://localhost/models
 
-    # index you want to use
-    INDEX=name-of-index
+   ## PROD
 
-    # replace with your models api key
-    MODELS_API_KEY=your-api-key
+   ES_URL=https://DOMAIN/es01
+   LBNLP_URL=https://DOMAIN/models
    ```
 
    > Note: You can use `openssl rand -hex 32` to generate random api keys

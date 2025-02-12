@@ -11,12 +11,11 @@ This project is a **comprehensive search engine for materials science papers**. 
 ## Key Features
 
 - **Vector Search**: Uses the **HNSW (Hierarchical Navigable Small World)** algorithm for efficient similarity-based searches.
-- **Advanced Sorting & Filtering**: Sort results by relevance or date and filter by criteria like date range.
+- **Advanced Sorting & Filtering**: Sort results by relevance or date and filter by criteria like date range, and search terms.
 - **Flexible Pagination**: Customizable results per page for a smooth browsing experience.
 - **Natural Language Processing**: **Sentence Transformer** for embedding queries and **MatBERT** for extracting key properties from abstracts.
 - **Caching for Speed**: **Redis** caching optimizes performance, achieving a **91% improvement in fetching speed** for cached results.
 - **Fuzzy Search Capabilities**: Enhances author and category searches, increasing search flexibility.
-- **Custom Search Syntax**: Allows for more refined and targeted searches.
 
 ## Architecture
 

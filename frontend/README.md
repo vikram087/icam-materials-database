@@ -1,6 +1,6 @@
 # Setup of Frontend
 
-This guide provides instructions to set up and run the frontend, which provides an interface for interacting with the ICAM Abstract Database. The frontend allows users to search and view research paper abstracts retrieved from the database.
+This guide provides instructions to set up and run the frontend, which provides the user interface. It also has an nginx reverse proxy for hosting with Docker.
 
 ## Table of Contents
 - [Clone the Repository](#1-clone-the-repository)
@@ -25,11 +25,17 @@ Clone the repository containing the frontend code, then navigate to the frontend
 Create a `.env` file to define environment variables required for the frontend configuration.
 
    ```ini
-   # The url for your backend, will be http://localhost:8080 for dev
+   ## DEV
+
    VITE_BACKEND_URL=http://localhost:8080
 
-   # replace with api key
-   VITE_API_KEY=your-api-key
+   ## PROD
+
+   VITE_BACKEND_URL=http://DOMAIN:8080
+
+   ## BOTH
+
+   VITE_API_KEY=your-backend-api-key
    ```
 
    > Note: You can use `openssl rand -hex 32` to generate random api keys
@@ -52,7 +58,7 @@ Start the frontend development server:
    npm run dev
    ```
 
-   This will start the frontend on a local development server, typically at `http://localhost:3000`.
+   This will start the frontend on a local development server, typically at `http://localhost:5173`.
 
 ## Next Steps
 

@@ -24,22 +24,23 @@ Clone the repository containing the server code, then navigate to the server dir
 
 ### 2. Set up `.env` File
 
-Create a `./env/.env` file for the Python Elasticsearch API. Replace `YOUR_API_KEY_HERE` with the API key you obtained from [Elasticsearch](../elasticsearch/README.md).
+Create a `./env/.env` file for the Python Elasticsearch API. Replace `your-es-api-key` with the API key you obtained from [Elasticsearch](../elasticsearch/README.md).
 
    ```ini
-   # API key for Elasticsearch
-   API_KEY=YOUR_API_KEY_HERE
+   ## DEV
 
-   # url for elasticsearch, defaults to https://localhost:9200
    ES_URL=https://localhost:9200
 
-   # hard-coded value
-   DOCKER=false
+   ## PROD
 
-   # name of index you want to use in elasticsearch
-   INDEX=name-of-index
+   ES_URL=https://DOMAIN/es01
 
-   SERVER_API_KEY=your-api-key
+   ## BOTH
+
+   INDEX=your-index
+   SERVER_API_KEY=your-backend-api-key
+   CERT_PATH="./ca.crt"
+   API_KEY=your-es-api-key
    ```
 
    > Note: You can use `openssl rand -hex 32` to generate random api keys
