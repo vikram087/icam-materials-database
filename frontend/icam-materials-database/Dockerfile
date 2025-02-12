@@ -1,8 +1,12 @@
 FROM node:18-alpine
 
-# Install Nginx
-RUN apk add --no-cache nginx certbot certbot-nginx
+# Install dependencies
+RUN apk add --no-cache nginx certbot certbot-nginx openssl curl
 
+# Create directories for SSL certificates
+RUN mkdir -p /etc/nginx/certs /etc/letsencrypt/live
+
+# Copy Nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
 
 # Create a working directory for our app source code
@@ -15,11 +19,8 @@ RUN npm install
 # Copy the rest of the frontend source code
 COPY . /app/
 
-# Expose port 80 inside the container
-EXPOSE 80
+# Expose ports for HTTP and HTTPS
+EXPOSE 80 443
 
-# The container's startup command:
-# 1) Build the app with environment variables available at runtime
-# 2) Copy the built files to Nginx’s web directory
-# 3) Start Nginx in the foreground
+# The container's startup command
 CMD ["/app/start.sh"]

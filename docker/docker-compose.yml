@@ -263,6 +263,7 @@ services:
         condition: service_healthy
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./certbot-etc:/etc/letsencrypt
       - ./certbot-var:/var/lib/letsencrypt
