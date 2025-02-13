@@ -9,6 +9,6 @@ exec /app/venv/bin/gunicorn annotate_texts:app \
     --timeout 300 \
     --access-logfile - \
     --error-logfile - \
-    --loglevel debug \
+    --log-level debug \
     --capture-output \
     --enable-stdio-inheritance
