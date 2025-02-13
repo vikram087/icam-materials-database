@@ -6,7 +6,7 @@ from flask_cors import CORS
 
 load_dotenv()
 
-DOCKER: str | None = os.getenv("DOCKER")
+DOCKER = os.getenv("DOCKER")
 
 
 app: Flask = Flask(__name__)
