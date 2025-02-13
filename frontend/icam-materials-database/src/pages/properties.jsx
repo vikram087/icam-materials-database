@@ -86,7 +86,7 @@ function Table({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 	) => {
 		const backend_url = import.meta.env.VITE_BACKEND_URL;
 
-		fetch(`${backend_url}/api/papers`, {
+		fetch(`${backend_url}/papers`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",

@@ -18,7 +18,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 		if (!selectedPaper?.id) {
 			const backend_url = import.meta.env.VITE_BACKEND_URL;
 
-			fetch(`${backend_url}/api/papers/${id}`, {
+			fetch(`${backend_url}/papers/${id}`, {
 				method: "GET",
 				headers: {
 					Authorization: `Bearer ${import.meta.env.VITE_API_KEY}`,

@@ -40,6 +40,7 @@ API_KEY: str | None = os.getenv("API_KEY")
 ES_URL: str | None = os.getenv("ES_URL")
 INDEX: str = os.getenv("INDEX", "")
 MODELS_API_KEY: str | None = os.getenv("MODELS_API_KEY")
+CERT_PATH: str = os.getenv("CERT_PATH", "")
 
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
@@ -140,6 +141,13 @@ def set_parser(
         action="store_true",
         help="[Optional] Exits on first ArXiv rate limit\nDefault: False",
     )
+    parser.add_argument(
+        "--ignore-dups",
+        required=False,
+        default=False,
+        action="store_true",
+        help="[Optional] Still upload duplicate papers",
+    )
     parser.add_argument("-v", "--version", action="version", version=program_version)
 
     return parser
@@ -217,7 +225,7 @@ def findInfo(
                     index=INDEX, id=paper_dict["id"]
                 )
                 exists = bad.get("found")
-                if exists is True:
+                if exists is True and not ignore_dups:
                     logging.info("Duplicate paper found")
                     dups += 1
                     continue
@@ -243,12 +251,13 @@ def findInfo(
 
             try:
                 annotations_response: requests.Response = requests.post(
-                    f"{LBNLP_URL}/api/annotate/matbert",
+                    f"{LBNLP_URL}/annotate/matbert",
                     json={"docs": batch_summaries},
                     headers={
                         "Content-Type": "application/json",
                         "Authorization": f"Bearer {MODELS_API_KEY}",
                     },
+                    verify=CERT_PATH,
                 )
             except Exception:
                 if not drop_batches and batch_size >= amount:
@@ -447,10 +456,8 @@ if __name__ == "__main__":
     no_es: str = args.no_es
     arxiv_start: int = args.start
     rate_exit: bool = args.exit
+    ignore_dups: bool = args.ignore_dups
 
-    if not no_es:
-        client: Elasticsearch = Elasticsearch(
-            ES_URL, api_key=API_KEY, ca_certs="./ca.crt"
-        )
+    client: Elasticsearch = Elasticsearch(ES_URL, api_key=API_KEY, ca_certs=CERT_PATH)
 
     main()

@@ -30,8 +30,9 @@ logging.basicConfig(level=logging.INFO)
 API_KEY: str | None = os.getenv("API_KEY")
 ES_URL: str | None = os.getenv("ES_URL")
 INDEX: str = os.getenv("INDEX") or ""
+CERT_PATH: str = os.getenv("CERT_PATH", "")
 
-client: Elasticsearch = Elasticsearch(ES_URL, api_key=API_KEY, ca_certs="./ca.crt")
+client: Elasticsearch = Elasticsearch(ES_URL, api_key=API_KEY, ca_certs=CERT_PATH)
 
 
 def set_parser(

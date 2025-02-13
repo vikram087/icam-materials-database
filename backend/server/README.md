@@ -7,7 +7,8 @@ This guide details how to set up and run the server, which integrates with Elast
   - [Clone the Repository](#1-clone-the-repository)
   - [Set up .env File](#2-set-up-env-file)
   - [Set up Python Environment](#3-setup-python-environment)
-  - [Run the Server](#4-run-the-server)
+  - [Copy ca.crt](#4-copy-cacrt)
+  - [Run the Server](#5-run-the-server)
 - [Troubleshooting](#troubleshooting)
 - [Next Steps](#next-steps)
 
@@ -33,7 +34,7 @@ Create a `./env/.env` file for the Python Elasticsearch API. Replace `your-es-ap
 
    ## PROD
 
-   ES_URL=https://DOMAIN/es01
+   ES_URL=https://DOMAIN:9200
 
    ## BOTH
 
@@ -60,7 +61,16 @@ Set up a virtual environment to isolate dependencies.
      pip install -r requirements.txt
      ```
 
-### 4. Run the Server
+### 4. Copy `ca.crt`
+
+Run the following command to copy Elasticsearch's ca.crt to run the server
+
+   ```bash
+   docker cp es01:/usr/share/elasticsearch/config/certs/ca/ca.crt ./ca.crt
+   ```
+
+
+### 5. Run the Server
 
 Start the server to begin processing requests.
 

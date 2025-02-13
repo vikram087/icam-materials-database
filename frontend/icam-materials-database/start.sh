@@ -77,6 +77,11 @@ if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "localhost" ]; then
             if (\$request_method = OPTIONS) {
                 return 204;
             }
+
+            proxy_connect_timeout 300;
+            proxy_send_timeout 300;
+            proxy_read_timeout 300;
+            send_timeout 300; 
         }
 
         location /kibana/ {
@@ -108,11 +113,27 @@ EOF
 else
     echo "Running in localhost mode, generating self-signed certificate with OpenSSL."
 
-    # Generate a self-signed SSL certificate for localhost
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout /etc/nginx/certs/localhost-key.pem \
-        -out /etc/nginx/certs/localhost-cert.pem \
-        -subj "/CN=localhost"
+    # Check if the certificate exists
+    if [ -f "$CERT_PATH" ]; then
+        # Check if the certificate is expired (or will expire in the next 24 hours)
+        if openssl x509 -checkend 86400 -noout -in "/etc/nginx/certs/localhost-cert.pem"; then
+            echo "Certificate is valid and exists. Skipping regeneration."
+        else
+            echo "Certificate has expired or is expiring soon. Regenerating..."
+            rm -f "/etc/nginx/certs/localhost-cert.pem" "/etc/nginx/certs/localhost-key.pem"
+
+            # Generate a new self-signed certificate
+            /app/gencert.sh
+            
+            echo "New certificate generated."
+        fi
+    else
+        echo "Certificate not found. Generating a new one..."
+
+        /app/gencert.sh
+
+        echo "New certificate generated."
+    fi
 
     # Create Nginx configuration for localhost
     cat >> /etc/nginx/nginx.conf <<EOF
@@ -128,8 +149,11 @@ else
         listen 443 ssl;
         server_name localhost;
 
-        ssl_certificate /etc/nginx/certs/localhost-cert.pem;
-        ssl_certificate_key /etc/nginx/certs/localhost-key.pem;
+        ssl_certificate /etc/nginx/certs/fullchain.pem; # fullchain cert
+        ssl_certificate_key /etc/nginx/certs/localhost.key;
+
+        # ssl_client_certificate /etc/nginx/certs/ca.crt;
+        # ssl_verify_client on; # mutual TLS
 
         root /usr/share/nginx/html;
         index index.html;
@@ -159,22 +183,27 @@ else
 
         # self signed certs in dev don't work with curl unless you use -k flag
 
-        # location /models/ {
-        #     proxy_pass http://models:8000;
-        #     proxy_http_version 1.1;
-        #     proxy_set_header Host \$host;
-        #     proxy_set_header X-Real-IP \$remote_addr;
-        #     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        #     proxy_set_header X-Forwarded-Proto https;
+        location /models/ {
+            proxy_pass http://models:8000;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
 
-        #     add_header Access-Control-Allow-Origin "*" always;
-        #     add_header Access-Control-Allow-Methods "GET,POST,OPTIONS" always;
-        #     add_header Access-Control-Allow-Headers "Authorization,Content-Type" always;
+            add_header Access-Control-Allow-Origin "*" always;
+            add_header Access-Control-Allow-Methods "GET,POST,OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Authorization,Content-Type" always;
 
-        #     if (\$request_method = OPTIONS) {
-        #         return 204;
-        #     }
-        # }
+            if (\$request_method = OPTIONS) {
+                return 204;
+            }
+
+            proxy_connect_timeout 300;
+            proxy_send_timeout 300;
+            proxy_read_timeout 300;
+            send_timeout 300; 
+        }
 
         location /kibana/ {
             proxy_pass http://kibana:5601/;
@@ -186,17 +215,15 @@ else
             proxy_redirect off;
         }
 
-        # self signed certs in dev don't work with curl unless you use -k flag        
-
-        # location /es01/ {
-        #     proxy_pass https://es01:9200/;
-        #     proxy_http_version 1.1;
-        #     proxy_set_header Host \$host;
-        #     proxy_set_header X-Real-IP \$remote_addr;
-        #     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        #     proxy_set_header X-Forwarded-Proto https;
-        #     proxy_redirect off;
-        # }
+        location /es01/ {
+            proxy_pass https://es01:9200/;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_redirect off;
+        }
     }
 }
 EOF

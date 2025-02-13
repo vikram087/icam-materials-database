@@ -17,6 +17,9 @@ volumes:
   api-key:
     driver: local
     name: api-key
+  frontend:
+    driver: local
+    name: frontend
 
 networks:
   app-network:
@@ -89,8 +92,6 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
     labels:
       co.elastic.logs/module: elasticsearch
-    ports:
-      - ${ES_PORT}:9200
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
       - esdata01:/usr/share/elasticsearch/data
@@ -181,7 +182,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8000/health || exit 1" ]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8000/models/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -210,7 +211,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8080/health || exit 1" ]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -258,15 +259,17 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./certbot-etc:/etc/letsencrypt
-      - ./certbot-var:/var/lib/letsencrypt
-      - ./nginx-logs:/var/log/nginx
+      - frontend:/etc/letsencrypt
+      - frontend:/var/lib/letsencrypt
+      - frontend:/var/log/nginx
+      - frontend:/etc/nginx/certs
     networks:
       - app-network
     environment:
-      VITE_BACKEND_URL: ${VITE_BACKEND_URL}
-      VITE_API_KEY: ${SERVER_API_KEY}
-      DOMAIN: ${DOMAIN}
+      - VITE_BACKEND_URL=${VITE_BACKEND_URL}
+      - VITE_API_KEY=${SERVER_API_KEY}
+      - DOMAIN=${DOMAIN}
+      - SERVER_NAME=${SERVER_NAME}
     healthcheck:
       test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
       interval: 10s

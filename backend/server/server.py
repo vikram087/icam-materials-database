@@ -85,7 +85,7 @@ def get_embedding(text: str):  # type: ignore
     return model.encode(text)
 
 
-@app.route("/health", methods=["GET"])
+@app.route("/api/health", methods=["GET"])
 def health() -> tuple[Response, int]:
     return jsonify({"message": "Success"}), 200
 

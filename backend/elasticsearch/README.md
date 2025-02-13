@@ -59,6 +59,9 @@ Create a `.env` file to define environment variables required for the stack conf
 
    # Encryption key (for POC environments only, if using, please change)
    ENCRYPTION_KEY=your-encryption-key
+
+   # kibana url
+   KIBANA_URL=http://localhost:5601
    ```
 
    > Note: You can use `openssl rand -hex 32` to generate random api keys

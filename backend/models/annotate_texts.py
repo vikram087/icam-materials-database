@@ -43,7 +43,7 @@ def check_api_key(request):
     return None
 
 
-@app.route("/api/annotate/<model_type>", methods=["POST"])
+@app.route("/models/annotate/<model_type>", methods=["POST"])
 def get_annotation(model_type: str) -> tuple:
     try:
         data: dict = request.get_json()
@@ -57,7 +57,7 @@ def get_annotation(model_type: str) -> tuple:
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/health", methods=["GET"])
+@app.route("/models/health", methods=["GET"])
 def health() -> tuple:
     return jsonify({"message": "Success"}), 200
 

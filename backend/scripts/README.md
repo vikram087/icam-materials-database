@@ -34,21 +34,32 @@ Clone the repository containing the script code, then navigate to the `scripts` 
 
    API_KEY=your-es-api-key
    DOCKER=false
-   INDEX=your-index
+   INDEX=search-papers-meta
    MODELS_API_KEY=your-models-api-key
 
    ## DEV
 
-   ES_URL=https://localhost:9200
+   ## DOCKER
    LBNLP_URL=http://localhost/models
+   ES_URL=https://localhost/es01
+
+   ## NO DOCKER
+   LBNLP_URL=http://localhost:8000/models
+   ES_URL=https://localhost:9200
 
    ## PROD
 
+   ## DOCKER
+   LBNLP_URL=http://DOMAIN/models
    ES_URL=https://DOMAIN/es01
-   LBNLP_URL=https://DOMAIN/models
+
+   ## NO DOCKER
+   LBNLP_URL=http://DOMAIN:8000/models
+   ES_URL=https://DOMAIN:9200
    ```
 
    > Note: You can use `openssl rand -hex 32` to generate random api keys
+   > Note: Docker and No Docker refer to using docker for the entire project vs. just Elasticsearch
 
 ### 3. Install Dependencies
 
@@ -62,10 +73,18 @@ Set up a Python virtual environment and install dependencies.
 
 ### 4. Copy ca.crt File
 
-Run the following command to copy the ca.crt file for the script to run properly.
+Run the following command to copy the ca.crt file for the script to run properly (if not already done).
+
+   Below if you are not using docker for the entire project, only using Docker for Elasticsearch (backend/elasticsearch)
 
    ```bash
    docker cp es01:/usr/share/elasticsearch/config/certs/ca/ca.crt ./ca.crt
+   ```
+
+   Below if you are using docker for the entire project (docker/)
+
+   ```bash
+   docker cp frontend:/etc/certs/nginx/ca.crt ./ca.crt
    ```
 
 ### 5. Run the Script

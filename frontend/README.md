@@ -27,11 +27,11 @@ Create a `.env` file to define environment variables required for the frontend c
    ```ini
    ## DEV
 
-   VITE_BACKEND_URL=http://localhost:8080
+   VITE_BACKEND_URL=http://localhost:8080/api
 
    ## PROD
 
-   VITE_BACKEND_URL=http://DOMAIN:8080
+   VITE_BACKEND_URL=http://DOMAIN:8080/api
 
    ## BOTH
 

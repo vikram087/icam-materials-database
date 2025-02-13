@@ -40,7 +40,7 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 	) => {
 		const backend_url = import.meta.env.VITE_BACKEND_URL;
 
-		fetch(`${backend_url}/api/papers`, {
+		fetch(`${backend_url}/papers`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -101,7 +101,6 @@ function Papers({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 			searches: searches,
 		});
 
-		console.log(searches);
 		setSearchQuery(parseSearchQuery(searches));
 
 		const startTime = performance.now();
