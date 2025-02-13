@@ -56,7 +56,7 @@ function Search({ searchParams, to }) {
 			quer = "all";
 		}
 
-		const modified = searchParams.searches || [
+		let modified = searchParams.searches || [
 			{
 				term: "all",
 				field: "Abstract",
@@ -70,6 +70,10 @@ function Search({ searchParams, to }) {
 			quer !== "all" &&
 			(termVal.toLowerCase() === "abstract" ||
 				termVal.toLowerCase() === "title");
+
+		if (quer === "all") {
+			modified = modified.slice(0, 1);
+		}
 
 		const advStr = encodeURIComponent(JSON.stringify(modified));
 

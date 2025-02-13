@@ -9,6 +9,7 @@ import redis.exceptions
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
 from flask import Flask, Request, Response, jsonify, request
+from flask_cors import CORS
 from fuzzywuzzy import fuzz
 from redis import Redis
 from sentence_transformers import SentenceTransformer  # type: ignore
@@ -23,6 +24,13 @@ CERT_PATH: str = os.getenv("CERT_PATH", "")
 client: Elasticsearch = Elasticsearch(ES_URL, api_key=API_KEY, ca_certs=CERT_PATH)
 
 app: Flask = Flask(__name__)
+
+if DOCKER != "true":
+    CORS(
+        app,
+        allow_headers=["Content-Type", "Authorization"],
+    )
+
 model: SentenceTransformer = SentenceTransformer("all-MiniLM-L6-v2")
 
 gunicorn_logger = logging.getLogger("gunicorn.error")
@@ -51,11 +59,23 @@ def require_api_key() -> tuple[Response, int] | None:
     if request.endpoint == "health":
         return None
 
+    if request.method == "OPTIONS" and DOCKER != "true":
+        return _cors_preflight_response()
+
     auth_response = check_api_key(request)
     if auth_response is not None:
         return auth_response
 
     return None
+
+
+def _cors_preflight_response():
+    """Handles CORS preflight OPTIONS requests."""
+    response = jsonify({"success": True})
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    response.headers.add("Access-Control-Allow-Headers", "Authorization, Content-Type")
+    return response
 
 
 def check_api_key(request):
