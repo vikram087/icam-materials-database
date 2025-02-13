@@ -277,9 +277,6 @@ def findInfo(
                     "Batch did not successfully complete, dropping all batches\nTo upload partial iterations, please remove the --drop-batches flag"
                 )
                 exit()
-            except Exception as e:
-                logging.error(f"Failed to annotate {e}, exiting")
-                exit()
 
             if annotations_response.status_code == 200:
                 logging.info(
