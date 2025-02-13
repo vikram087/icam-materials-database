@@ -270,7 +270,7 @@ services:
       - VITE_BACKEND_URL=${VITE_BACKEND_URL}
       - VITE_API_KEY=${SERVER_API_KEY}
       - DOMAIN=${DOMAIN}
-      - SERVER_NAME=${SERVER_NAME}
+      - HOST=${HOST}
     healthcheck:
       test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
       interval: 10s

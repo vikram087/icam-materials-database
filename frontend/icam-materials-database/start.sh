@@ -1,13 +1,15 @@
 #!/bin/sh
 
+# maybe add like host env var and if host is on try to host otherwise don;t
+
 # Run build process
 npm run build
 
 # Copy built files to Nginx root
 cp -R dist /usr/share/nginx/html
 
-# Check if domain is set and is NOT localhost
-if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "localhost" ]; then
+# if host then host otherwise dont
+if [ "$HOST" = "true" ]; then
     echo "Setting up Nginx with Let's Encrypt for domain: $DOMAIN"
 
     # Ensure certbot is installed
@@ -113,27 +115,20 @@ EOF
 else
     echo "Running in localhost mode, generating self-signed certificate with OpenSSL."
 
-    # Check if the certificate exists
-    if [ -f "$CERT_PATH" ]; then
-        # Check if the certificate is expired (or will expire in the next 24 hours)
-        if openssl x509 -checkend 86400 -noout -in "/etc/nginx/certs/localhost-cert.pem"; then
-            echo "Certificate is valid and exists. Skipping regeneration."
+    # Check if the server certificate exists
+    if [ -f "/etc/nginx/certs/$DOMAIN.crt" ]; then
+        # Check if the server certificate is expired (or will expire in the next 24 hours)
+        if openssl x509 -checkend 86400 -noout -in "/etc/nginx/certs/$DOMAIN.crt"; then
+            echo "Server certificate is valid and exists. Skipping regeneration."
         else
-            echo "Certificate has expired or is expiring soon. Regenerating..."
-            rm -f "/etc/nginx/certs/localhost-cert.pem" "/etc/nginx/certs/localhost-key.pem"
-
-            # Generate a new self-signed certificate
+            echo "Server certificate has expired or is expiring soon. Regenerating..."
             /app/gencert.sh
-            
-            echo "New certificate generated."
         fi
     else
-        echo "Certificate not found. Generating a new one..."
-
+        echo "Server certificate not found. Generating a new one..."
         /app/gencert.sh
-
-        echo "New certificate generated."
     fi
+
 
     # Create Nginx configuration for localhost
     cat >> /etc/nginx/nginx.conf <<EOF
@@ -141,16 +136,16 @@ else
 
     server {
         listen 80;
-        server_name localhost;
+        server_name $DOMAIN;
         return 301 https://\$host\$request_uri;
     }
 
     server {
         listen 443 ssl;
-        server_name localhost;
+        server_name $DOMAIN;
 
         ssl_certificate /etc/nginx/certs/fullchain.pem; # fullchain cert
-        ssl_certificate_key /etc/nginx/certs/localhost.key;
+        ssl_certificate_key /etc/nginx/certs/$DOMAIN.key;
 
         # ssl_client_certificate /etc/nginx/certs/ca.crt;
         # ssl_verify_client on; # mutual TLS

@@ -35,13 +35,14 @@ Create a `.env` file to define environment variables required for the stack conf
    VITE_BACKEND_URL=https://localhost/api
    DOMAIN=localhost
    KIBANA_URL=https://localhost/kibana
-   SERER_NAME=localhost
+   HOST=false
 
    ## PROD
 
    VITE_BACKEND_URL=https://DOMAIN/api
    DOMAIN=DOMAIN
    KIBANA_URL=https:///DOMAIN/kibana
+   HOST=true
 
    ## BOTH
 
