@@ -131,7 +131,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						<strong>Authors:</strong>{" "}
 						{paper?.authors?.map((author, index) => (
 							<span key={`${author}_detail`}>
-								{author}
+								<Content content={author} mode="highlightOnly" />
 								{index < paper?.authors?.length - 1 ? ", " : ""}
 							</span>
 						))}
@@ -153,7 +153,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						<strong>Categories:</strong>{" "}
 						{paper?.categories?.map((category, index) => (
 							<span key={category}>
-								{category}
+								<Content content={category} mode="highlightOnly" />
 								{index < paper?.categories?.length - 1 ? ", " : ""}
 							</span>
 						))}
@@ -182,7 +182,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						{Array.isArray(paper?.MAT) ? (
 							paper?.MAT?.map((item, index) => (
 								<span key={`${index}_${item}`}>
-									{item}
+									<Content content={item} />
 									{index < paper?.MAT.length - 1 ? ", " : ""}
 								</span>
 							))
@@ -195,7 +195,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						{Array.isArray(paper?.DSC) ? (
 							paper?.DSC?.map((item, index) => (
 								<span key={`${index}_${item}`}>
-									{item}
+									<Content content={item} />
 									{index < paper?.DSC.length - 1 ? ", " : ""}
 								</span>
 							))
@@ -208,7 +208,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						{Array.isArray(paper?.SPL) ? (
 							paper?.SPL?.map((item, index) => (
 								<span key={`${index}_${item}`}>
-									{item}
+									<Content content={item} />
 									{index < paper?.SPL.length - 1 ? ", " : ""}
 								</span>
 							))
@@ -221,7 +221,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						{Array.isArray(paper?.SMT) ? (
 							paper?.SMT?.map((item, index) => (
 								<span key={`${index}_${item}`}>
-									{item}
+									<Content content={item} />
 									{index < paper?.SMT.length - 1 ? ", " : ""}
 								</span>
 							))
@@ -234,7 +234,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						{Array.isArray(paper?.CMT) ? (
 							paper?.CMT?.map((item, index) => (
 								<span key={`${index}_${item}`}>
-									{item}
+									<Content content={item} />
 									{index < paper?.CMT.length - 1 ? ", " : ""}
 								</span>
 							))
@@ -255,7 +255,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 								...(Array.isArray(paper?.PUT) ? paper.PUT : []),
 							].map((item, index, array) => (
 								<span key={`${index}_${item}`}>
-									{item}
+									<Content content={item} />
 									{index < array.length - 1 ? ", " : ""}
 								</span>
 							))
@@ -268,7 +268,7 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 						{Array.isArray(paper?.APL) ? (
 							paper?.APL?.map((item, index) => (
 								<span key={`${index}_${item}`}>
-									{item}
+									<Content content={item} />
 									{index < paper?.APL.length - 1 ? ", " : ""}
 								</span>
 							))

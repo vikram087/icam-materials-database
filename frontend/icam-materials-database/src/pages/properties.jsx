@@ -248,7 +248,6 @@ function Table({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 																<Content
 																	key={`${index}_${item}`}
 																	content={item}
-																	mode="highlightOnly"
 																/>
 															))
 														) : (

@@ -19,25 +19,31 @@ function Content({ content, mode = "both" }) {
 	};
 
 	const sanitizedContent = DOMPurify.sanitize(content);
-	let parsedContent = parse(sanitizedContent);
+	const parsedContent = parse(sanitizedContent);
 
 	if (mode === "highlightOnly") {
 		return <>{parsedContent}</>;
 	}
 
 	if (mode === "mathOnly") {
-		parsedContent = parse(sanitizedContent);
-
 		return (
 			<MathJaxContext version={3} config={config}>
-				<MathJax hideUntilTypeset="first">{parsedContent}</MathJax>
+				<span style={{ display: "inline" }}>
+					<MathJax inline hideUntilTypeset="first">
+						{sanitizedContent}
+					</MathJax>
+				</span>
 			</MathJaxContext>
 		);
 	}
 
 	return (
 		<MathJaxContext version={3} config={config}>
-			<MathJax hideUntilTypeset="first">{parsedContent}</MathJax>
+			<span style={{ display: "inline" }}>
+				<MathJax inline hideUntilTypeset="first">
+					{parsedContent}
+				</MathJax>
+			</span>
 		</MathJaxContext>
 	);
 }
