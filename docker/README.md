@@ -78,7 +78,7 @@ Install Docker Desktop for your operating system:
 Start the Docker container.
 
    ```bash
-   docker compose up -d --build
+   docker compose up -d
    ```
 
 ### 5. Access Kibana (optional)
