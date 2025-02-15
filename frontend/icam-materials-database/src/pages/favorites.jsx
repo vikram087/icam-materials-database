@@ -85,8 +85,12 @@ function Favorites({ setPrevUrl, setPaperToUse }) {
 					papersCopy={papersCopy}
 					setQuery={setQuery}
 				/>
-				<div style={{ textAlign: "center" }}>
-					<b style={{ fontSize: "large", paddingBottom: "10px" }}>
+				<div style={{ textAlign: "center", marginTop: "10px" }}>
+					<b
+						style={{
+							fontSize: "large",
+						}}
+					>
 						Displaying Results for: "{query}"
 					</b>
 				</div>
@@ -142,7 +146,7 @@ function Favorites({ setPrevUrl, setPaperToUse }) {
 										<p>
 											by&nbsp;
 											{paper.authors.map((author, index) => (
-												<span key={`${paper.id}_authors`}>
+												<span key={`${paper.id}_authors_${index}`}>
 													<em>
 														{author}
 														{index < paper.authors.length - 1 ? ", " : ""}
@@ -161,6 +165,11 @@ function Favorites({ setPrevUrl, setPaperToUse }) {
 												type="button"
 												className="expand-button"
 												onClick={() => toggleExpand(index)}
+												style={{
+													border: "none",
+													background: "none",
+													padding: 0,
+												}}
 											>
 												{expandedIndex === index ? "⌃" : "⌄"}
 											</button>
@@ -212,7 +221,7 @@ function Search({ papers, setPapers, papersCopy, setQuery }) {
 		setQuery(query);
 
 		const options = {
-			keys: ["title", "authors", "summary"],
+			keys: papers[0] ? Object.keys(papers[0]) : [],
 			threshold: 0.3,
 		};
 
