@@ -4,31 +4,28 @@ import logging
 import math
 import os
 import time
-import urllib.request as libreq
 from argparse import Namespace
+from xml.etree import ElementTree as ET
 
-import feedparser  # type: ignore
 import requests
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
-from feedparser import FeedParserDict
 from sentence_transformers import SentenceTransformer  # type: ignore
 
 program_name: str = """
 add_papers.py
 """
 program_usage: str = """
-add_papers.py [options] -i ITER -a AMT
+add_papers.py [options]
 """
 program_description: str = """description:
 This is a python script to upload a specified number of documents to an elasticsearch
-database from arXiv
+database from arXiv (via OAI-PMH bulk, instead of the usual API).
 """
 program_epilog: str = """ 
-Higher values for amount and iterations are more likely to be rate limited
 """
 program_version: str = """
-Version 2.3.1 2024-06-01
+Version 1.0.0 2025-02-19
 Created by Vikram Penumarti
 """
 
@@ -42,10 +39,17 @@ INDEX: str = os.getenv("INDEX", "")
 MODELS_API_KEY: str | None = os.getenv("MODELS_API_KEY")
 CERT_PATH: str = os.getenv("CERT_PATH", "")
 
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(filename)s:%(lineno)d - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
 logging.getLogger("elastic_transport").setLevel(logging.WARNING)
 logging.getLogger("root").setLevel(logging.INFO)
+
 
 model: SentenceTransformer = SentenceTransformer("all-MiniLM-L6-v2")
 
@@ -68,17 +72,9 @@ def set_parser(
         "-i",
         "--iter",
         required=False,
-        default=40,
+        default=2,
         type=int,
-        help="[Optional] Number of iterations of document uploads to perform (min 1)\nDefault: 40",
-    )
-    parser.add_argument(
-        "-a",
-        "--amt",
-        required=False,
-        default=50,
-        type=int,
-        help="[Optional] Number of papers to fetch from arXiv (max 2000, min 1)\nDefault: 50",
+        help="[Optional] Number of times to fetch papers from bulk api (min 1)\nDefault: 2",
     )
     parser.add_argument(
         "-b",
@@ -87,22 +83,6 @@ def set_parser(
         default=50,
         type=int,
         help="[Optional] Batch size of documents to be annotated at once\nDefault: 50",
-    )
-    parser.add_argument(
-        "-s",
-        "--sleep-between-calls",
-        type=int,
-        required=False,
-        default=15,
-        help="[Optional] Sleep time (in seconds) between API calls to arXiv\nDefault: 15",
-    )
-    parser.add_argument(
-        "-r",
-        "--sleep-after-rate-limit",
-        type=int,
-        required=False,
-        default=300,
-        help="[Optional] Sleep time (in seconds) after hitting rate limit before making next API call\nDefault: 300",
     )
     parser.add_argument(
         "-d",
@@ -128,18 +108,12 @@ def set_parser(
         help="[Optional] Enabling flag makes sure this script does not connect to Elasticsearch\nDefault: False",
     )
     parser.add_argument(
-        "--start",
-        required=False,
-        type=int,
-        help="[Optional] Which location in ArXiv to start at\nDefault: Documents in Elasticsearch",
-    )
-    parser.add_argument(
-        "-e",
-        "--exit",
+        "-s",
+        "--skip-annotate",
         required=False,
         default=False,
         action="store_true",
-        help="[Optional] Exits on first ArXiv rate limit\nDefault: False",
+        help="[Optional] Do not do NLP annotation\nDefault: False",
     )
     parser.add_argument(
         "--ignore-dups",
@@ -148,6 +122,20 @@ def set_parser(
         action="store_true",
         help="[Optional] Still upload duplicate papers",
     )
+    parser.add_argument(
+        "--sleep-between-calls",
+        type=int,
+        required=False,
+        default=5,
+        help="[Optional] Sleep time (in seconds) between API calls to arXiv\nDefault: 5",
+    )
+    parser.add_argument(
+        "--sleep-after-rate-limit",
+        type=int,
+        required=False,
+        default=5,
+        help="[Optional] Sleep time (in seconds) after hitting rate limit before making next API call\nDefault: 5",
+    )
     parser.add_argument("-v", "--version", action="version", version=program_version)
 
     return parser
@@ -155,94 +143,190 @@ def set_parser(
 
 def sleep_with_timer(seconds: int) -> None:
     for remaining in range(seconds, 0, -1):
-        print(f"INFO:root:Resuming in {remaining} seconds...", end="\r", flush=True)
+        logging.info(f"Resuming in {remaining} seconds...")
         time.sleep(1)
     logging.info("\nResuming now...")
 
 
-def findInfo(
-    start: int,
-) -> tuple[list[dict], bool, bool]:
-    search_query: str = "all:superconductivity"
+def findInfo() -> tuple[list[dict], int]:
+    oai_set = "physics:cond-mat"
+    base_url = f"https://export.arxiv.org/oai2?verb=ListRecords&metadataPrefix=oai_dc&set={oai_set}"
+
     paper_list: list[dict] = []
     dups: int = 0
 
-    i: int = 0
-    while True:
-        url: str = f"http://export.arxiv.org/api/query?search_query={search_query}&start={start}&max_results={amount}"
+    wait_time = 5
 
-        logging.info(f"Searching arXiv for {search_query}")
+    # OAI-PMH pagination: use resumptionToken
+    resumption_token: str | None = None
+
+    # Keep fetching until we hit 'iter' iterations
+    for _ in range(iter):
+        if resumption_token is None:
+            url = base_url
+        else:
+            url = f"https://export.arxiv.org/oai2?verb=ListRecords&resumptionToken={resumption_token}"
+
+        logging.info(
+            f"Fetching OAI-PMH page. Have {len(paper_list)} so far. URL: {url}"
+        )
 
         try:
-            with libreq.urlopen(url) as response:
-                content: bytes = response.read()
+            # Use requests for consistency
+            response = requests.get(url, timeout=60)
+            response.raise_for_status()
         except Exception as e:
-            logging.error(f"Error fetching data from arXiv: {e}")
+            if response.status_code == 503:
+                wait_time = int(
+                    response.headers.get("Retry-After") or sleep_after_rate_limit
+                )
+                logging.exception(f"Rate limit, sleeping for {wait_time} seconds")
+                sleep_with_timer(int(wait_time))
+
+            logging.exception(f"Error fetching OAI-PMH data, exiting: {e}")
             exit()
 
-        feed: FeedParserDict = feedparser.parse(content)
+        # Parse XML
+        root = ET.fromstring(response.text)
 
-        if len(feed.entries) == 0:
-            if rate_exit:
-                logging.error("Rate limited, and exit flag enabled, exiting program")
-                exit()
+        # Namespaces for OAI
+        ns = {
+            "dc": "http://purl.org/dc/elements/1.1/",
+            "oai_dc": "http://www.openarchives.org/OAI/2.0/oai_dc/",
+            "oai": "http://www.openarchives.org/OAI/2.0/",
+        }
 
-            if i == 2:
-                logging.error(
-                    "Rate limited three times in a row. Consider increasing wait time or adjusting query."
-                )
-                logging.error("Exiting program")
-                exit()
+        records = root.findall(".//oai:record", ns)
 
-            logging.warning(
-                f"Rate limited. Sleeping for {sleep_after_rate_limit} seconds"
-            )
-            sleep_with_timer(sleep_after_rate_limit)
-            i += 1
-            continue
+        if len(records) == 0:
+            logging.error("No data returned, exiting program")
+            exit()
 
-        summaries: list[str] = []
         paper_dicts: list[dict] = []
+        summaries: list[str] = []
+        for record in records:
+            try:
+                summary, doi, comment, journal_ref = [None] * 4
 
-        for entry in feed.entries:
-            paper_dict: dict = {
-                "id": entry.id.split("/abs/")[-1].replace("/", "-"),
-                "title": entry.title,
-                "links": [link["href"] for link in entry.get("links")],
-                "summary": entry.get("summary"),
-                "date": int(time.strftime("%Y%m%d", entry.get("published_parsed"))),
-                "updated": int(time.strftime("%Y%m%d", entry.get("updated_parsed"))),
-                "categories": [category["term"] for category in entry.get("tags")],
-                "authors": [author["name"] for author in entry.get("authors")],
-                "doi": entry.get("arxiv_doi"),
-                "journal_ref": entry.get("arxiv_journal_ref"),
-                "comments": entry.get("arxiv_comment"),
-                "primary_category": entry.get("arxiv_primary_category").get("term"),
-            }
-
-            if not no_es:
-                bad = client.options(ignore_status=[404]).get(
-                    index=INDEX, id=paper_dict["id"]
-                )
-                exists = bad.get("found")
-                if exists is True and not ignore_dups:
-                    logging.info("Duplicate paper found")
-                    dups += 1
+                header = record.find("oai:header", ns)
+                if header is None:
                     continue
 
-            summaries.append(paper_dict["summary"])
-            paper_dicts.append(paper_dict)
+                metadata = record.find("oai:metadata", ns)
+                if metadata is None:
+                    continue
 
-        logging.info("Fetched papers, starting annotations")
+                # Extract category and dates
+                category = header.find("oai:setSpec", ns)
+                submission_date = header.find("oai:datestamp", ns)
 
+                # Extract OAI_DC metadata block
+                oai_dc = metadata.find("oai_dc:dc", ns)
+                if oai_dc is None:
+                    continue
+
+                # Extract fields
+                id_elem = header.find("oai:identifier", ns)
+                title_elem = oai_dc.find("dc:title", ns)
+                summary_elem = oai_dc.findall("dc:description", ns)
+                update_date_elem = oai_dc.findall("dc:date", ns)
+                categories = oai_dc.findall("dc:subject", ns)
+                authors = oai_dc.findall("dc:creator", ns)
+                links = oai_dc.findall("dc:identifier", ns)
+
+                # Validate elements before accessing `.text`
+
+                id_text = "N/A"
+                if id_elem is not None and id_elem.text:
+                    id_text = id_elem.text.split(":")[-1]
+
+                # Duplicate check in ES
+                if not no_es:
+                    bad = client.options(ignore_status=[404]).get(
+                        index=INDEX, id=id_text
+                    )
+                    exists = bad.get("found")
+                    if exists is True and not ignore_dups:
+                        logging.info("Duplicate paper found")
+                        dups += 1
+                        continue
+
+                title_text = title_elem.text if title_elem is not None else "N/A"
+                category_text = category.text if category is not None else "N/A"
+                submission_date_text = (
+                    submission_date.text if submission_date is not None else "N/A"
+                )
+
+                for sum in summary_elem:
+                    if sum.text is None:
+                        continue
+
+                    if sum.text.startswith("Comment: "):
+                        comment = sum.text
+                    else:
+                        summary = sum.text.strip()
+
+                if summary:
+                    summaries.append(summary)
+
+                final_links = []
+                for link in links:
+                    if link.text is None:
+                        continue
+
+                    if link.text.startswith("doi:"):
+                        doi = link.text.removeprefix("doi:")
+                        final_links.append(f"https://www.doi.org/{doi}")
+                    elif not link.text.startswith("http"):
+                        journal_ref = link.text
+                    else:
+                        final_links.append(link.text)
+
+                submission_date_text_new = "N/A"
+                if submission_date_text is not None:
+                    submission_date_text_new = submission_date_text.replace("-", "")
+
+                # Build dictionary
+                entry = {
+                    "id": id_text,
+                    "title": title_text,
+                    "links": final_links,
+                    "summary": summary if summary else "N/A",
+                    "date": submission_date_text_new,
+                    "updated": [
+                        date.text.replace("-", "")
+                        for date in update_date_elem or []
+                        if date is not None and date.text
+                    ],
+                    "authors": [auth.text for auth in authors if auth is not None],
+                    "doi": doi if doi else "N/A",
+                    "comments": comment if comment else "N/A",
+                    "primary_category": category_text,
+                    "topics": [cat.text for cat in categories if cat is not None],
+                    "journal_ref": journal_ref if journal_ref else "N/A",
+                    # no categories
+                }
+
+                paper_dicts.append(entry)
+
+            except Exception as ex:
+                logging.exception(f"Error parsing record: {ex}")
+
+        # Collect all feed entries
+        if not paper_dicts:
+            # If for some reason we had records but couldn't parse anything
+            logging.error("No valid entries, exit flag enabled, exiting program")
+            exit()
+
+        if not no_annotate:
+            logging.info("Fetched papers, starting annotations")
+
+        # The annotation logic remains the same
         num_batches: int = math.ceil(len(summaries) / batch_size)
-
         all_annotations: list[dict] = []
-        interrupted: bool = False
-
         batch_num: int = 0
 
-        while batch_num < num_batches:
+        while batch_num < num_batches and not no_annotate:
             batch_start: int = batch_num * batch_size
             batch_end: int = batch_start + batch_size
 
@@ -260,21 +344,15 @@ def findInfo(
                     verify=CERT_PATH,
                 )
             except Exception:
-                if not drop_batches and batch_size >= amount:
-                    logging.error(
-                        "Batch did not successfully complete and current payload is empty, exiting"
-                    )
-                    exit()
-
-                elif not drop_batches:
-                    interrupted = True
+                if not drop_batches:
                     logging.warning(
                         "Batch did not successfully complete, uploading current documents"
                     )
                     break
 
                 logging.error(
-                    "Batch did not successfully complete, dropping all batches\nTo upload partial iterations, please remove the --drop-batches flag"
+                    "Batch did not successfully complete, dropping all batches\n"
+                    "To upload partial iterations, please remove the --drop-batches flag"
                 )
                 exit()
 
@@ -291,24 +369,38 @@ def findInfo(
                 batch_annotations = [{}] * len(batch_paper_dicts)
 
             all_annotations.extend(batch_annotations)
-
             batch_num += 1
 
-        for paper_dict, annotation in zip(paper_dicts, all_annotations):
-            paper_dict["APL"] = annotation.get("APL", [])
-            paper_dict["CMT"] = annotation.get("CMT", [])
-            paper_dict["DSC"] = annotation.get("DSC", [])
-            paper_dict["MAT"] = annotation.get("MAT", [])
-            paper_dict["PRO"] = annotation.get("PRO", [])
-            paper_dict["PVL"] = annotation.get("PVL", [])
-            paper_dict["PUT"] = annotation.get("PUT", [])
-            paper_dict["SMT"] = annotation.get("SMT", [])
-            paper_dict["SPL"] = annotation.get("SPL", [])
+        if not no_annotate:
+            # Merge annotations into paper_dicts
+            for p_dict, annotation in zip(paper_dicts, all_annotations):
+                p_dict["APL"] = annotation.get("APL", [])
+                p_dict["CMT"] = annotation.get("CMT", [])
+                p_dict["DSC"] = annotation.get("DSC", [])
+                p_dict["MAT"] = annotation.get("MAT", [])
+                p_dict["PRO"] = annotation.get("PRO", [])
+                p_dict["PVL"] = annotation.get("PVL", [])
+                p_dict["PUT"] = annotation.get("PUT", [])
+                p_dict["SMT"] = annotation.get("SMT", [])
+                p_dict["SPL"] = annotation.get("SPL", [])
 
-            paper_list.append(paper_dict)
+        paper_list.extend(paper_dicts)
+        logging.info(
+            f"Collected papers (so far) 0 - {len(paper_list)}; Duplicates skipped: {dups}"
+        )
 
-        logging.info(f"Collected papers {start} - {start + amount - dups}")
-        return replaceNullValues(paper_list), False, interrupted
+        # Check for resumptionToken
+        rt_elem = root.find(".//oai:resumptionToken", ns)
+        resumption_token = rt_elem.text if rt_elem is not None else None
+        if not resumption_token:
+            logging.info("No resumptionToken found; no more pages to fetch from OAI.")
+            break
+
+        wait_time = sleep_between_calls or wait_time
+        logging.info(f"Iteration complete, sleeping {wait_time} seconds")
+        sleep_with_timer(wait_time)
+
+    return replaceNullValues(paper_list), dups
 
 
 def replaceNullValues(papers_list: list[dict]) -> list[dict]:
@@ -316,7 +408,6 @@ def replaceNullValues(papers_list: list[dict]) -> list[dict]:
         for key, val in paper_dict.items():
             if not val:
                 paper_dict[key] = "N/A"
-
     return papers_list
 
 
@@ -341,14 +432,19 @@ def createNewIndex(delete: bool, index: str) -> None:
         logging.info("Index already exists and no deletion specified")
 
 
-def getEmbedding(text: str):  # type: ignore
+def getEmbedding(text: str):
     return model.encode(text)
 
 
 def insert_documents(documents: list[dict], index: str):
+    if no_es and not output:
+        print(json.dumps(documents, indent=4))
+        return
+
     logging.info("Starting Insertion")
     operations: list[dict] = []
     operations_string: str = ""
+
     for document in documents:
         summary_embedding = (
             getEmbedding(document["summary"]).tolist()
@@ -386,46 +482,26 @@ def insert_documents(documents: list[dict], index: str):
 
 def upload_to_es() -> None:
     if not no_es:
-        start: int = client.count(index=INDEX)["count"]
+        start_db_count: int = client.count(index=INDEX)["count"]
     else:
-        start = 0
+        start_db_count = 0
 
-    if arxiv_start:
-        start = arxiv_start
+    logging.info(f"Total documents in DB: {start_db_count}\n")
 
-    logging.info(f"Total documents in DB, start: {start}\n")
+    docs, dups = findInfo()
+    if len(docs) == 0:
+        logging.error("No docs to upload, exiting")
+        exit()
 
-    for i in range(iterations):
-        docs, ex, interrupted = findInfo(start)
-        if len(docs) == 0:
-            logging.error("No docs to upload, exiting")
-            exit()
-
-        insert_documents(docs, INDEX)
-        logging.info(f"Uploaded documents {start} - {start + amount}")
-        start += amount
-
-        if ex:
-            logging.info(f"Total documents in DB, finish: {start}\n")
-            logging.info("Database is fully updated, exiting")
-            exit()
-
-        logging.info(f"Iteration {i+1}/{iterations} complete")
-        logging.info(f"Sleeping for {sleep_between_calls} seconds")
-        sleep_with_timer(sleep_between_calls)
-
-        if interrupted:
-            logging.warning("Exiting due to all batches not successfully completing")
-            exit()
-
-    logging.info(f"Total documents in DB, finish: {start}\n")
+    insert_documents(docs, INDEX)
+    logging.info(f"Uploaded {iter * 1000 - dups} documents")
 
 
 def main() -> None:
     if not no_es:
         createNewIndex(False, INDEX)
 
-    if amount > 2000 or amount < 1 or iterations < 1:
+    if iter < 1:
         raise Exception(
             "Flag error: please ensure your flag values match the specifications"
         )
@@ -443,18 +519,22 @@ if __name__ == "__main__":
     )
     args: Namespace = parser.parse_args()
 
-    amount: int = args.amt
-    iterations: int = args.iter
+    # Same argument usage
+    iter: int = args.iter
     batch_size: int = args.batch_size
-    sleep_after_rate_limit: int = args.sleep_after_rate_limit
-    sleep_between_calls: int = args.sleep_between_calls
     drop_batches: bool = args.drop_batches
     output: str = args.output
-    no_es: str = args.no_es
-    arxiv_start: int = args.start
-    rate_exit: bool = args.exit
+    no_es: bool = args.no_es
     ignore_dups: bool = args.ignore_dups
+    no_annotate: bool = args.skip_annotate
+    sleep_after_rate_limit: int = args.sleep_after_rate_limit
+    sleep_between_calls: int = args.sleep_between_calls
 
+    logging.info("Running script with the following arguments:")
+    for key, value in vars(args).items():
+        logging.info(f"{key}: {value}")
+
+    # Set up the Elasticsearch client
     client: Elasticsearch = Elasticsearch(ES_URL, api_key=API_KEY, ca_certs=CERT_PATH)
 
     main()
