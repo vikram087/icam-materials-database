@@ -448,6 +448,8 @@ def read_dataset(dataset: str) -> tuple[list[dict], int]:
 
             papers_list.append(paper_dict)
 
+            sleep_with_timer(sleep_between_calls)
+
     if not no_annotate:
         papers_list = annotate_papers(summaries, papers_list)
 
