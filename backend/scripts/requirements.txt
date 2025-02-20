@@ -6,3 +6,5 @@ sentence-transformers==3.0.1
 mypy==1.11.2
 requests
 redis
+boto3
+PyMuPDF==1.25.3

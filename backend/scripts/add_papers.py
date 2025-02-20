@@ -3,14 +3,21 @@ import json
 import logging
 import math
 import os
+import re
 import time
+import unicodedata
 from argparse import Namespace
+from datetime import datetime
+from io import BytesIO
 from xml.etree import ElementTree as ET
 
+import fitz
 import requests
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
 from sentence_transformers import SentenceTransformer  # type: ignore
+
+# CANNOT DISPLAY FULL TEXTS
 
 program_name: str = """
 add_papers.py
@@ -22,7 +29,19 @@ program_description: str = """description:
 This is a python script to upload a specified number of documents to an elasticsearch
 database from arXiv (via OAI-PMH bulk, instead of the usual API).
 """
-program_epilog: str = """ 
+program_epilog: str = """
+Relevant links:
+
+https://info.arxiv.org/help/bulk_data/index.html
+https://info.arxiv.org/help/bulk_data_s3.html
+https://www.kaggle.com/datasets/Cornell-University/arxiv/data
+https://info.arxiv.org/help/bulk_data.html#harvest
+https://info.arxiv.org/help/oa/index.html
+
+Kaggle dataset used for all papers' metadata, but may be out of date
+AWS S3 used for full text extraction, but is paid (works with metadata too)
+Bulk OAI API used for massive metadata extraction, fully up to date, but rate limits, and is an api
+Can scrape for full text, but I want to avoid this
 """
 program_version: str = """
 Version 1.0.0 2025-02-19
@@ -136,6 +155,14 @@ def set_parser(
         default=5,
         help="[Optional] Sleep time (in seconds) after hitting rate limit before making next API call\nDefault: 5",
     )
+    parser.add_argument(
+        "-f",
+        "--file-dataset",
+        required=False,
+        default=None,
+        type=str,
+        help="[Optional] Location of input dataset. Will not use bulk API.",
+    )
     parser.add_argument("-v", "--version", action="version", version=program_version)
 
     return parser
@@ -148,6 +175,348 @@ def sleep_with_timer(seconds: int) -> None:
     logging.info("\nResuming now...")
 
 
+# using AWS S3 bulk data (full text only)
+# can also get metadata, but kaggle dataset/bulk api is better bc it's free
+# def get_full_text(arxiv_id):
+#     BUCKET_NAME = "arxiv"
+#     REGION_NAME = "us-east-1"
+#     PDF_PREFIX = "pdf/"
+
+#     # Extract the year and month from the arXiv ID
+#     year_month = arxiv_id[:4]
+#     pdf_file_name = f"{arxiv_id.replace('.', '/')}.pdf"
+#     tar_file_key = f"{PDF_PREFIX}arXiv_pdf_{year_month}_001.tar"
+
+#     s3_client = boto3.client("s3", region_name=REGION_NAME)
+
+#     try:
+#         # Download the tar file with Requester Pays
+#         response = s3_client.get_object(
+#             Bucket=BUCKET_NAME, Key=tar_file_key, RequestPayer="requester"
+#         )
+#         tar_content = BytesIO(response["Body"].read())
+
+#         # Extract the specific PDF from the tar file
+#         with tarfile.open(fileobj=tar_content, mode="r:") as tar:
+#             for member in tar.getmembers():
+#                 if member.name.endswith(pdf_file_name):
+#                     pdf_file = tar.extractfile(member)
+#                     pdf_content = BytesIO(pdf_file.read())
+#                     text_content = convert_pdf_to_text(pdf_content)
+#                     logging.info(f"Full text indexed for arXiv ID: {arxiv_id}")
+#                     return text_content
+
+#         logging.error(f"PDF not found in tar for arXiv ID: {arxiv_id}")
+
+#     except s3_client.exceptions.NoSuchKey:
+#         logging.error(f"Tar file not found for arXiv ID: {arxiv_id}")
+#     except Exception as e:
+#         logging.exception(f"Error fetching full text: {e}")
+
+
+#     return None
+def get_full_text(arxiv_id):
+    """Download a PDF from arXiv and return cleaned text."""
+    pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
+    response = None
+
+    for i in range(2):
+        try:
+            logging.info(f"Attempt {i + 1}")
+            response = requests.get(pdf_url, timeout=60)
+            response.raise_for_status()
+            break
+        except requests.exceptions.RequestException as e:
+            if response is not None and response.status_code == 503:
+                wait_time = int(
+                    response.headers.get("Retry-After") or sleep_after_rate_limit
+                )
+                logging.exception(f"Rate limit, sleeping for {wait_time} seconds")
+                sleep_with_timer(wait_time)
+            else:
+                logging.exception(f"Error fetching page, will try again. {e}")
+
+    if response is None:
+        logging.error("Could not download PDF after multiple attempts.")
+        return None
+
+    pdf_content = BytesIO(response.content)
+    text_content = convert_pdf_to_text(pdf_content)
+
+    logging.info(f"Full text indexed for arXiv ID: {arxiv_id}")
+    return text_content
+
+
+def convert_pdf_to_text(pdf_content):
+    """
+    Convert PDF bytes into (cleaned) text.
+    1) Extract raw text from each page.
+    2) Concatenate pages.
+    3) Clean the resulting text with various heuristics.
+    """
+    doc = fitz.open(stream=pdf_content, filetype="pdf")
+    raw_pages = []
+    for page in doc:
+        raw_pages.append(page.get_text())
+
+    raw_text = "\n".join(raw_pages)
+    cleaned_text = clean_pdf_text(raw_text)
+    return cleaned_text
+
+
+def clean_pdf_text(text: str) -> str:
+    """
+    Apply a series of cleaning steps to make
+    PDF-extracted text more coherent.
+    """
+    text = normalize_unicode(text)
+    text = remove_headers_footers(text)
+    text = merge_line_breaks(text)
+    text = normalize_whitespace(text)
+    return text
+
+
+def normalize_unicode(text: str) -> str:
+    """
+    Normalize unusual Unicode characters, ligatures, etc.
+    using NFKC or similar forms.
+    """
+    text = unicodedata.normalize("NFKC", text)
+
+    # You can add known ligature replacements if needed, e.g.:
+    ligatures = {
+        "\ufb01": "fi",  # example of a common ligature
+        "\ufb02": "fl",
+        # Add others if needed
+    }
+    for lig_char, replacement in ligatures.items():
+        text = text.replace(lig_char, replacement)
+
+    return text
+
+
+def remove_headers_footers(text: str) -> str:
+    """
+    Example heuristic-based removal of repeated lines,
+    headers, or footers.
+    """
+    lines = text.splitlines()
+    cleaned_lines = []
+    for line in lines:
+        stripped_line = line.strip()
+
+        # Remove lines that look like repeated arXiv headers
+        if stripped_line.startswith("arXiv:"):
+            continue
+
+        # Remove lines that are purely numeric (page numbers, etc.)
+        if re.match(r"^\d+$", stripped_line):
+            continue
+
+        # You can add more heuristics for footers, e.g. "Page X of Y"
+
+        cleaned_lines.append(line)
+    return "\n".join(cleaned_lines)
+
+
+def merge_line_breaks(text: str) -> str:
+    """
+    Merge lines that are obviously part of the same sentence.
+    Also handle hyphenated words split across lines.
+    """
+    lines = text.splitlines()
+    merged_lines = []
+    buffer_line = ""
+
+    for i, line in enumerate(lines):
+        line_stripped = line.strip()
+
+        # Check if line ends with a hyphen (possible hyphenation)
+        if line_stripped.endswith("-"):
+            # Remove the hyphen and continue in the same line
+            buffer_line += line_stripped[:-1]
+            continue
+
+        # If the current line doesn't end with punctuation and the next line starts with lowercase,
+        # it's likely mid-sentence. We merge them.
+        if (
+            line_stripped
+            and not line_stripped.endswith((".", "?", "!", ":", ";"))
+            and i + 1 < len(lines)
+        ):
+            next_line_stripped = lines[i + 1].strip()
+            if next_line_stripped and next_line_stripped[0].islower():
+                buffer_line += line_stripped + " "
+                continue
+
+        # Otherwise, we finalize the buffer_line here.
+        buffer_line += line_stripped
+        merged_lines.append(buffer_line)
+        buffer_line = ""
+
+    # If anything remains in buffer_line at the end, append it.
+    if buffer_line:
+        merged_lines.append(buffer_line)
+
+    return "\n".join(merged_lines)
+
+
+def normalize_whitespace(text: str) -> str:
+    """
+    Collapse extra spaces and remove leading/trailing whitespace.
+    """
+    # Convert multiple spaces/tabs/newlines into a single space
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+# reading kaggle dataset (older papers)
+def read_dataset(dataset: str) -> tuple[list[dict], int]:
+    papers_list: list[dict] = []
+    dups = 0
+    summaries = []
+    with open(dataset, "r") as file:
+        for line in file:
+            line_dict = json.loads(line)
+
+            id = line_dict.get("id")
+            if id is None:
+                continue
+
+            if not no_es:
+                bad = client.options(ignore_status=[404]).get(index=INDEX, id=id)
+                exists = bad.get("found")
+                if exists is True and not ignore_dups:
+                    logging.info("Duplicate paper found")
+                    dups += 1
+                    continue
+
+            parsed_authors = line_dict.get("authors_parsed")
+            if parsed_authors:
+                authors = []
+                for author in parsed_authors:
+                    last, first, middle = author
+                    authors.append(f"{first} {middle} {last}")
+
+            links = []
+            doi = line_dict.get("doi")
+            if id:
+                links.append(f"https://arxiv.org/abs/{id}")
+            if doi:
+                links.append(f"https://www.doi.org/{doi}")
+
+            cat_string = line_dict.get("categories")
+            if cat_string:
+                categories = cat_string.split(" ")
+
+            full_text = get_full_text(id) or "N/A"
+
+            versions = line_dict.get("versions")
+            updated = []
+            if versions:
+                for version in versions:
+                    date_str = version.get("created")
+                    if not date_str:
+                        continue
+
+                    date_obj = datetime.strptime(date_str, "%a, %d %b %Y %H:%M:%S %Z")
+                    date_int = int(date_obj.strftime("%Y%m%d"))
+                    updated.append(date_int)
+
+            summary = line_dict.get("abstract").strip() or "N/A"
+            summaries.append(summary)
+
+            paper_dict = {
+                "id": id or "N/A",
+                "title": line_dict.get("title") or "N/A",
+                "links": links if len(links) > 0 else "N/A",
+                "summary": summary,
+                "date": line_dict.get("update_date").replace("-", "") or "N/A",
+                "updated": updated,
+                "authors": authors or "N/A",
+                "doi": doi or "N/A",
+                "comments": line_dict.get("comments") or "N/A",
+                "primary_category": categories[0],
+                "journal_ref": line_dict.get("journal-ref") or "N/A",
+                "full_text": full_text,
+                "submitter": line_dict.get("submitter") or "N/A",
+                "report-no": line_dict.get("report-no") or "N/A",
+                "categories": categories,
+                "license": line_dict.get("license") or "N/A",
+                # no topics
+            }
+
+            papers_list.append(paper_dict)
+
+    if not no_annotate:
+        papers_list = annotate_papers(summaries, papers_list)
+
+    return replaceNullValues(papers_list), dups
+
+
+def annotate_papers(summaries: list[str], paper_dicts: list[dict]) -> list[dict]:
+    num_batches: int = math.ceil(len(summaries) / batch_size)
+    all_annotations: list[dict] = []
+    batch_num: int = 0
+
+    while batch_num < num_batches:
+        batch_start: int = batch_num * batch_size
+        batch_end: int = batch_start + batch_size
+
+        batch_summaries: list[str] = summaries[batch_start:batch_end]
+        batch_paper_dicts: list[dict] = paper_dicts[batch_start:batch_end]
+
+        try:
+            annotations_response: requests.Response = requests.post(
+                f"{LBNLP_URL}/annotate/matbert",
+                json={"docs": batch_summaries},
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {MODELS_API_KEY}",
+                },
+                verify=CERT_PATH,
+            )
+        except Exception:
+            if not drop_batches:
+                logging.warning(
+                    "Batch did not successfully complete, uploading current documents"
+                )
+                break
+
+            logging.error(
+                "Batch did not successfully complete, dropping all batches\n"
+                "To upload partial iterations, please remove the --drop-batches flag"
+            )
+            exit()
+
+        if annotations_response.status_code == 200:
+            logging.info(f"Batch {batch_num + 1}/{num_batches} annotation succeeded")
+            batch_annotations = annotations_response.json().get("annotation", [])
+        else:
+            logging.error(
+                f"Batch {batch_num + 1}/{num_batches} annotation failed: "
+                f"{annotations_response.status_code}, {annotations_response.text}"
+            )
+            batch_annotations = [{}] * len(batch_paper_dicts)
+
+        all_annotations.extend(batch_annotations)
+        batch_num += 1
+
+    for p_dict, annotation in zip(paper_dicts, all_annotations):
+        p_dict["APL"] = annotation.get("APL", [])
+        p_dict["CMT"] = annotation.get("CMT", [])
+        p_dict["DSC"] = annotation.get("DSC", [])
+        p_dict["MAT"] = annotation.get("MAT", [])
+        p_dict["PRO"] = annotation.get("PRO", [])
+        p_dict["PVL"] = annotation.get("PVL", [])
+        p_dict["PUT"] = annotation.get("PUT", [])
+        p_dict["SMT"] = annotation.get("SMT", [])
+        p_dict["SPL"] = annotation.get("SPL", [])
+
+    return paper_dicts
+
+
+# bulk OAI api for metadata (newer papers)
 def findInfo() -> tuple[list[dict], int]:
     oai_set = "physics:cond-mat"
     base_url = f"https://export.arxiv.org/oai2?verb=ListRecords&metadataPrefix=oai_dc&set={oai_set}"
@@ -251,6 +620,8 @@ def findInfo() -> tuple[list[dict], int]:
                         dups += 1
                         continue
 
+                full_text = get_full_text(id_text) or "N/A"
+
                 title_text = title_elem.text if title_elem is not None else "N/A"
                 category_text = category.text if category is not None else "N/A"
                 submission_date_text = (
@@ -304,6 +675,7 @@ def findInfo() -> tuple[list[dict], int]:
                     "primary_category": category_text,
                     "topics": [cat.text for cat in categories if cat is not None],
                     "journal_ref": journal_ref if journal_ref else "N/A",
+                    "full_text": full_text,
                     # no categories
                 }
 
@@ -322,67 +694,9 @@ def findInfo() -> tuple[list[dict], int]:
             logging.info("Fetched papers, starting annotations")
 
         # The annotation logic remains the same
-        num_batches: int = math.ceil(len(summaries) / batch_size)
-        all_annotations: list[dict] = []
-        batch_num: int = 0
-
-        while batch_num < num_batches and not no_annotate:
-            batch_start: int = batch_num * batch_size
-            batch_end: int = batch_start + batch_size
-
-            batch_summaries: list[str] = summaries[batch_start:batch_end]
-            batch_paper_dicts: list[dict] = paper_dicts[batch_start:batch_end]
-
-            try:
-                annotations_response: requests.Response = requests.post(
-                    f"{LBNLP_URL}/annotate/matbert",
-                    json={"docs": batch_summaries},
-                    headers={
-                        "Content-Type": "application/json",
-                        "Authorization": f"Bearer {MODELS_API_KEY}",
-                    },
-                    verify=CERT_PATH,
-                )
-            except Exception:
-                if not drop_batches:
-                    logging.warning(
-                        "Batch did not successfully complete, uploading current documents"
-                    )
-                    break
-
-                logging.error(
-                    "Batch did not successfully complete, dropping all batches\n"
-                    "To upload partial iterations, please remove the --drop-batches flag"
-                )
-                exit()
-
-            if annotations_response.status_code == 200:
-                logging.info(
-                    f"Batch {batch_num + 1}/{num_batches} annotation succeeded"
-                )
-                batch_annotations = annotations_response.json().get("annotation", [])
-            else:
-                logging.error(
-                    f"Batch {batch_num + 1}/{num_batches} annotation failed: "
-                    f"{annotations_response.status_code}, {annotations_response.text}"
-                )
-                batch_annotations = [{}] * len(batch_paper_dicts)
-
-            all_annotations.extend(batch_annotations)
-            batch_num += 1
 
         if not no_annotate:
-            # Merge annotations into paper_dicts
-            for p_dict, annotation in zip(paper_dicts, all_annotations):
-                p_dict["APL"] = annotation.get("APL", [])
-                p_dict["CMT"] = annotation.get("CMT", [])
-                p_dict["DSC"] = annotation.get("DSC", [])
-                p_dict["MAT"] = annotation.get("MAT", [])
-                p_dict["PRO"] = annotation.get("PRO", [])
-                p_dict["PVL"] = annotation.get("PVL", [])
-                p_dict["PUT"] = annotation.get("PUT", [])
-                p_dict["SMT"] = annotation.get("SMT", [])
-                p_dict["SPL"] = annotation.get("SPL", [])
+            paper_dicts = annotate_papers(summaries, paper_dicts)
 
         paper_list.extend(paper_dicts)
         logging.info(
@@ -488,7 +802,11 @@ def upload_to_es() -> None:
 
     logging.info(f"Total documents in DB: {start_db_count}\n")
 
-    docs, dups = findInfo()
+    if dataset:
+        docs, dups = read_dataset(dataset)
+    else:
+        docs, dups = findInfo()
+
     if len(docs) == 0:
         logging.error("No docs to upload, exiting")
         exit()
@@ -529,6 +847,7 @@ if __name__ == "__main__":
     no_annotate: bool = args.skip_annotate
     sleep_after_rate_limit: int = args.sleep_after_rate_limit
     sleep_between_calls: int = args.sleep_between_calls
+    dataset: str | None = args.file_dataset
 
     logging.info("Running script with the following arguments:")
     for key, value in vars(args).items():
