@@ -409,7 +409,7 @@ def read_dataset(dataset: str) -> tuple[list[dict], int]:
             if cat_string:
                 categories = cat_string.split(" ")
 
-            full_text = get_full_text(id) or "N/A"
+            # full_text = get_full_text(id) or "N/A"
 
             versions = line_dict.get("versions")
             updated = []
@@ -438,7 +438,7 @@ def read_dataset(dataset: str) -> tuple[list[dict], int]:
                 "comments": line_dict.get("comments") or "N/A",
                 "primary_category": categories[0],
                 "journal_ref": line_dict.get("journal-ref") or "N/A",
-                "full_text": full_text,
+                # "full_text": full_text,
                 "submitter": line_dict.get("submitter") or "N/A",
                 "report-no": line_dict.get("report-no") or "N/A",
                 "categories": categories,
@@ -622,7 +622,7 @@ def findInfo() -> tuple[list[dict], int]:
                         dups += 1
                         continue
 
-                full_text = get_full_text(id_text) or "N/A"
+                # full_text = get_full_text(id_text) or "N/A"
 
                 title_text = title_elem.text if title_elem is not None else "N/A"
                 category_text = category.text if category is not None else "N/A"
@@ -677,7 +677,7 @@ def findInfo() -> tuple[list[dict], int]:
                     "primary_category": category_text,
                     "topics": [cat.text for cat in categories if cat is not None],
                     "journal_ref": journal_ref if journal_ref else "N/A",
-                    "full_text": full_text,
+                    # "full_text": full_text,
                     # no categories
                 }
 

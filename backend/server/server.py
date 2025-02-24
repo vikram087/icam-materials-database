@@ -18,7 +18,7 @@ load_dotenv(dotenv_path="./env/.env")
 API_KEY: str | None = os.getenv("API_KEY")
 ES_URL: str | None = os.getenv("ES_URL")
 DOCKER: str | None = os.getenv("DOCKER")
-INDEX: str | None = os.getenv("INDEX")
+INDEX: str = os.getenv("INDEX", "")
 CERT_PATH: str = os.getenv("CERT_PATH", "")
 
 client: Elasticsearch = Elasticsearch(ES_URL, api_key=API_KEY, ca_certs=CERT_PATH)
@@ -115,7 +115,7 @@ def health() -> tuple[Response, int]:
 # redis-cli FLUSHALL # command on cli to clear cache
 @app.route("/api/papers/<paper_id>", methods=["GET"])
 def get_paper(paper_id: str) -> tuple[Response, int] | Response:
-    results = client.get(index="search-papers-meta", id=paper_id)
+    results = client.get(index=INDEX, id=paper_id)
     paper: dict = results["_source"]
     if paper:
         return jsonify(paper)
