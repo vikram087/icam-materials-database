@@ -174,7 +174,6 @@ services:
   #   platform: linux/amd64
   #   build:
   #     context: ../backend/models
-  #   image: vikrampen/icam-models:latest
   #   volumes:
   #     - model-data:/app/lbnlp/models/pkg
   #   environment:
@@ -191,7 +190,6 @@ services:
     container_name: backend
     build:
       context: ../backend/server
-    image: vikrampen/icam-backend:latest
     depends_on:
       es01:
         condition: service_healthy
@@ -252,7 +250,6 @@ services:
       context: ../frontend/icam-materials-database
       args:
         VITE_BACKEND_URL: ${VITE_BACKEND_URL}
-    image: vikrampen/icam-frontend:latest
     depends_on:
       backend:
         condition: service_healthy
