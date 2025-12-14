@@ -266,4 +266,4 @@ services:
     volumes:
       - nginx_secrets:/etc/letsencrypt
     environment:
-      - CERTBOT_EMAIL=vikram.penumarti@gmail.com
+      - CERTBOT_EMAIL=${CERTBOT_EMAIL}

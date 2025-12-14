@@ -9,7 +9,8 @@ This guide provides steps for setting up the project using Docker Compose. The s
   - [Set up .env File](#2-set-up-env-file)
   - [Install Docker](#3-install-docker)
   - [Run the Docker Container](#4-run-the-docker-container)
-  - [Access Kibana](#5-access-kibana-optional)
+  - [Edit nginx config](#5-edit-serverprodconf-prod)
+  - [Access Kibana](#6-access-kibana-optional)
 - [Stopping the Docker Container](#stopping-the-docker-container)
 - [Troubleshooting](#troubleshooting)
 - [Next Steps](#next-steps)
@@ -33,16 +34,12 @@ Create a `.env` file to define environment variables required for the stack conf
    ## DEV
 
    VITE_BACKEND_URL=https://localhost/api
-   DOMAIN=localhost
    KIBANA_URL=https://localhost/kibana
-   HOST=false
 
    ## PROD
 
    VITE_BACKEND_URL=https://DOMAIN/api
-   DOMAIN=DOMAIN
    KIBANA_URL=https:///DOMAIN/kibana
-   HOST=true
 
    ## BOTH
 
@@ -75,11 +72,25 @@ Install Docker Desktop for your operating system:
 
 Start the Docker container.
 
-   ```bash
-   docker compose up -d
+   - dev
+      ```bash
+      make dev
+      ```
+
+   - prod
+      ```bash
+      make prod
+      ```
+
+### 5. Edit server.prod.conf (prod)
+
+   ```conf
+   ## frontend/icam-materials-database/user_conf.d/server.prod.conf
+
+   server_name DOMAIN.org www.DOMAIN.org; # change to your domain
    ```
 
-### 5. Access Kibana (optional)
+### 6. Access Kibana (optional)
 
 After starting the Docker container, you can access Kibana at `https://localhost/api`. Log in with:
 
@@ -92,7 +103,7 @@ After starting the Docker container, you can access Kibana at `https://localhost
 To stop the container, run:
 
    ```bash
-   docker compose down
+   make down
    ```
 
 ## Troubleshooting
