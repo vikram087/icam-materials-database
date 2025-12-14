@@ -71,7 +71,7 @@ def get_paper(paper_id: str) -> tuple[Response, int] | Response:
     results = client.get(index=INDEX, id=paper_id)
     paper: dict = results["_source"]
     if paper:
-        return jsonify(paper)
+        return jsonify(paper), 200
     else:
         return jsonify({"error": "No results found"}), 404
 
@@ -102,9 +102,9 @@ def make_cache_key(args: list[str]):
 def parse_request(request: Request) -> tuple:
     data: dict = request.get_json()
 
-    page: int = int(data.get("page", 0))
-    num_results: int = int(data.get("results", 0))
-    sorting: str = str(data.get("sorting", ""))
+    page: int = int(data.get("page", 1))
+    num_results: int = int(data.get("results", 10))
+    sorting: str = str(data.get("sorting", "Most-Recent"))
 
     today: datetime = datetime.today()
     formatted_date: str = today.strftime("%Y%m%d")
