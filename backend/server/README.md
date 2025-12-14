@@ -19,8 +19,8 @@ This guide details how to set up and run the server, which integrates with Elast
 Clone the repository containing the server code, then navigate to the server directory.
 
    ```bash
-   git clone https://github.com/vikram087/icam-materials-database.git
-   cd icam-materials-database/backend/server
+   git clone https://github.com/vikram087/matsearch.git
+   cd matsearch/backend/server
    ```
 
 ### 2. Set up `.env` File

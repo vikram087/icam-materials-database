@@ -22,8 +22,8 @@ This guide provides steps for setting up the project using Docker Compose. The s
 Clone the repo and navigate to the config directory
 
    ```bash
-   git clone https://github.com/vikram087/icam-materials-database.git
-   cd icam-materials-database/docker
+   git clone https://github.com/vikram087/matsearch.git
+   cd matsearch/docker
    ```
 
 ### 2. Set up `.env` File
@@ -43,11 +43,11 @@ Create a `.env` file to define environment variables required for the stack conf
 
    ## BOTH
 
-   COMPOSE_PROJECT_NAME=icam
+   COMPOSE_PROJECT_NAME=matsearch
    ELASTIC_PASSWORD=your-elastic-password
    KIBANA_PASSWORD=your-kibana-password
    STACK_VERSION=8.15.0
-   CLUSTER_NAME=ICAM
+   CLUSTER_NAME=MATSEARCH
    LICENSE=basic
    ES_PORT=9200
    KIBANA_PORT=5601
@@ -85,7 +85,7 @@ Start the Docker container.
 ### 5. Edit server.prod.conf (prod)
 
    ```conf
-   ## frontend/icam-materials-database/user_conf.d/server.prod.conf
+   ## frontend/matsearch/user_conf.d/server.prod.conf
 
    server_name DOMAIN.org www.DOMAIN.org; # change to your domain
    ```

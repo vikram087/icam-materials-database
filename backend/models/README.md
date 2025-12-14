@@ -25,8 +25,8 @@ The point of this setup is for the `annotate_texts.py` server to be called when 
    Clone the repo and navigate to the lbnlp directory.
 
    ```bash
-   git clone https://github.com/vikram087/icam-materials-database.git
-   cd icam-materials-database/backend/lbnlp
+   git clone https://github.com/vikram087/matsearch.git
+   cd matsearch/backend/lbnlp
    ```
 
 2. **Install system dependencies**

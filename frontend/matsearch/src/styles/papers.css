@@ -1,0 +1,99 @@
+/* ================================================
+   Papers Page - Custom CSS
+   Only for animations and effects not in Tailwind
+   ================================================ */
+
+/* Line Clamp Utility (if not in Tailwind config) */
+.line-clamp-3 {
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+/* Paper Card Hover Animation */
+.paper-card {
+	position: relative;
+	animation: fadeInUp 0.4s ease-out;
+}
+
+@keyframes fadeInUp {
+	from {
+		opacity: 0;
+		transform: translateY(15px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Scroll Buttons */
+.scroll-button {
+	position: fixed;
+	right: 2rem;
+	width: 48px;
+	height: 48px;
+	background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+	color: white;
+	border: none;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	z-index: 40;
+}
+
+.scroll-button:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+	background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
+}
+
+.scroll-button:active {
+	transform: translateY(0);
+}
+
+.scroll-button-top {
+	bottom: 8rem;
+}
+
+.scroll-button-bottom {
+	bottom: 4rem;
+}
+
+@media (max-width: 768px) {
+	.scroll-button {
+		width: 44px;
+		height: 44px;
+		right: 1rem;
+	}
+
+	.scroll-button-top {
+		bottom: 7rem;
+	}
+
+	.scroll-button-bottom {
+		bottom: 3.5rem;
+	}
+}
+
+@media (max-width: 480px) {
+	.scroll-button {
+		width: 40px;
+		height: 40px;
+		right: 0.75rem;
+	}
+
+	.scroll-button-top {
+		bottom: 6.5rem;
+	}
+
+	.scroll-button-bottom {
+		bottom: 3rem;
+	}
+}

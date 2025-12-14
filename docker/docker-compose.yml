@@ -247,7 +247,7 @@ services:
   frontend:
     container_name: frontend
     build:
-      context: ../frontend/icam-materials-database
+      context: ../frontend/matsearch
       args:
         VITE_BACKEND_URL: ${VITE_BACKEND_URL}
     depends_on:

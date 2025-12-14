@@ -1,0 +1,148 @@
+/* ================================================
+   Properties/Table Component - Custom CSS
+   ================================================ */
+
+/* Table Styles */
+.properties-table {
+	border-collapse: separate;
+	border-spacing: 0;
+}
+
+.properties-table thead th {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	white-space: nowrap;
+}
+
+.properties-table thead th:first-child {
+	border-top-left-radius: 0.75rem;
+}
+
+.properties-table thead th:last-child {
+	border-top-right-radius: 0.75rem;
+}
+
+/* Table Row Hover Effect */
+.table-row-hover {
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.table-row-hover:hover {
+	background-color: #f9fafb;
+}
+
+/* Cell Expansion States */
+.collapsed-cell {
+	max-height: 120px;
+	overflow: hidden;
+	position: relative;
+}
+
+.collapsed-cell::after {
+	content: "";
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 40px;
+	background: linear-gradient(to bottom, transparent, white);
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+}
+
+.collapsed-cell:hover::after {
+	opacity: 1;
+}
+
+.expanded-cell {
+	max-height: none;
+	overflow: visible;
+}
+
+/* Fade In Animation for Table Rows */
+.properties-table tbody tr {
+	animation: fadeInRow 0.3s ease-out;
+}
+
+@keyframes fadeInRow {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Stagger animation for rows */
+.properties-table tbody tr:nth-child(1) {
+	animation-delay: 0s;
+}
+.properties-table tbody tr:nth-child(2) {
+	animation-delay: 0.05s;
+}
+.properties-table tbody tr:nth-child(3) {
+	animation-delay: 0.1s;
+}
+.properties-table tbody tr:nth-child(4) {
+	animation-delay: 0.15s;
+}
+.properties-table tbody tr:nth-child(5) {
+	animation-delay: 0.2s;
+}
+
+/* Cell Click Ripple Effect */
+.properties-table td {
+	position: relative;
+}
+
+.properties-table td.cursor-pointer:active::before {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 0;
+	height: 0;
+	border-radius: 50%;
+	background: rgba(233, 69, 96, 0.1);
+	transform: translate(-50%, -50%);
+	animation: ripple 0.6s ease-out;
+}
+
+@keyframes ripple {
+	to {
+		width: 200px;
+		height: 200px;
+		opacity: 0;
+	}
+}
+
+/* Responsive Table - Mobile View */
+@media (max-width: 1024px) {
+	.properties-table {
+		font-size: 0.875rem;
+	}
+
+	.properties-table th,
+	.properties-table td {
+		padding: 0.75rem 0.5rem;
+	}
+}
+
+@media (max-width: 768px) {
+	.properties-table {
+		font-size: 0.8125rem;
+	}
+
+	.properties-table th,
+	.properties-table td {
+		padding: 0.5rem 0.375rem;
+	}
+
+	.collapsed-cell {
+		max-height: 80px;
+	}
+}

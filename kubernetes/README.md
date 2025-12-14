@@ -1,6 +1,6 @@
 # Kubernetes Setup Guide
 
-This guide provides steps for setting up the ICAM Materials Database project using Kubernetes.
+This guide provides steps for setting up the Matsearch project using Kubernetes.
 
 > Note: This setup is currently in progress, so it is not complete
 

@@ -1,0 +1,30 @@
+/* ================================================
+   Favorites Page - Custom CSS
+   Only for animations not possible in Tailwind
+   ================================================ */
+
+/* Line Clamp Utility */
+.line-clamp-3 {
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+/* Paper Card Hover Animation */
+.paper-card {
+	position: relative;
+	animation: fadeInUp 0.4s ease-out;
+}
+
+@keyframes fadeInUp {
+	from {
+		opacity: 0;
+		transform: translateY(15px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}

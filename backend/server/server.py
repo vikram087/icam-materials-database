@@ -100,7 +100,7 @@ def make_cache_key(args: list[str]):
 
 
 def parse_request(request: Request) -> tuple:
-    data: dict = request.get_json()
+    data: dict = request.get_json() or {}
 
     page: int = int(data.get("page", 1))
     num_results: int = int(data.get("results", 10))

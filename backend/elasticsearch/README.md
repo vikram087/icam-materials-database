@@ -22,8 +22,8 @@ This guide provides steps for setting up Elasticsearch and Kibana using Docker C
 Clone the repo and navigate to the elasticsearch directory
 
    ```bash
-   git clone https://github.com/vikram087/icam-materials-database.git
-   cd icam-materials-database/backend/elasticsearch
+   git clone https://github.com/vikram087/matsearch.git
+   cd matsearch/backend/elasticsearch
    ```
 
 ### 2. Set up `.env` File
