@@ -39,7 +39,6 @@ Create a `./env/.env` file for the Python Elasticsearch API. Replace `your-es-ap
    ## BOTH
 
    INDEX=your-index
-   SERVER_API_KEY=your-backend-api-key
    CERT_PATH="./ca.crt"
    API_KEY=your-es-api-key
    ```

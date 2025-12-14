@@ -32,10 +32,6 @@ Create a `.env` file to define environment variables required for the frontend c
    ## PROD
 
    VITE_BACKEND_URL=http://DOMAIN:8080/api
-
-   ## BOTH
-
-   VITE_API_KEY=your-backend-api-key
    ```
 
    > Note: You can use `openssl rand -hex 32` to generate random api keys

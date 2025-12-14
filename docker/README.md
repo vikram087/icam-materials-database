@@ -21,7 +21,7 @@ This guide provides steps for setting up the project using Docker Compose. The s
 Clone the repo and navigate to the config directory
 
    ```bash
-   git clone https://github.com/vikram087/iicam-materials-database.git
+   git clone https://github.com/vikram087/icam-materials-database.git
    cd icam-materials-database/docker
    ```
 
@@ -58,8 +58,6 @@ Create a `.env` file to define environment variables required for the stack conf
    KB_MEM_LIMIT=1073741824
    ENCRYPTION_KEY=your-encryption-key
    INDEX=your-index
-   SERVER_API_KEY=your-server-api-key
-   MODELS_API_KEY=your-models-api-key
    KIBANA_BASE_PATH=/kibana
    ```
 

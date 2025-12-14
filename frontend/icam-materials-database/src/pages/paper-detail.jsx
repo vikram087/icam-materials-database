@@ -20,9 +20,6 @@ function PaperDetail({ prevUrl, selectedPaper }) {
 
 			fetch(`${backend_url}/papers/${id}`, {
 				method: "GET",
-				headers: {
-					Authorization: `Bearer ${import.meta.env.VITE_API_KEY}`,
-				},
 			})
 				.then((response) => response.json())
 				.then((data) => {

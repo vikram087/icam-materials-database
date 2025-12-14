@@ -55,7 +55,6 @@ DOCKER: str | None = os.getenv("DOCKER")
 API_KEY: str | None = os.getenv("API_KEY")
 ES_URL: str | None = os.getenv("ES_URL")
 INDEX: str = os.getenv("INDEX", "")
-MODELS_API_KEY: str | None = os.getenv("MODELS_API_KEY")
 CERT_PATH: str = os.getenv("CERT_PATH", "")
 
 
@@ -474,7 +473,6 @@ def annotate_papers(summaries: list[str], paper_dicts: list[dict]) -> list[dict]
                 json={"docs": batch_summaries},
                 headers={
                     "Content-Type": "application/json",
-                    "Authorization": f"Bearer {MODELS_API_KEY}",
                 },
                 verify=CERT_PATH,
             )

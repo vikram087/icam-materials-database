@@ -14,7 +14,6 @@ The point of this setup is for the `annotate_texts.py` server to be called when 
 - [Common Setup (Required for all 3 models)](#common-setup-required-for-all-3-models)
 - [Matbert](#matbert)
 - [Matscholar/Relevance](#matscholarrelevance)
-- [Setup .env File]()
 
 ## Prereqs
 - **Architecture**: Machine running `amd64` (tested on Ubuntu 22.04 amd64, t2.medium (2vcpu, 8GiB mem))
@@ -110,14 +109,3 @@ source <environment path>/bin/activate
 pip install -r requirements-shared.txt
 pip install -r requirements-matscholar-relevance.txt
 ```
-
-## Setup `.env` file
-
-### 2. Set up `.env` File
-
-Create a `.env` file for the models. Replace `your-models-api-key` with the API key you obtain from running `openssl rand -hex 32`.
-
-   ```ini
-   # api key for models
-   MODELS_API_KEY=your-models-api-key
-   ```

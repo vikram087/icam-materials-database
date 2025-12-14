@@ -169,23 +169,23 @@ services:
       timeout: 5s
       retries: 3
 
-  # models:
-  #   container_name: models
-  #   platform: linux/amd64
-  #   build:
-  #     context: ../backend/models
-  #   image: vikrampen/icam-models:latest
-  #   volumes:
-  #     - model-data:/app/lbnlp/models/pkg
-  #   environment:
-  #     - DOCKER=true
-  #   networks:
-  #     - app-network
-  #   healthcheck:
-  #     test: [ "CMD-SHELL", "curl -f http://localhost:8000/models/health || exit 1" ]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 3
+  models:
+    container_name: models
+    platform: linux/amd64
+    build:
+      context: ../backend/models
+    image: vikrampen/icam-models:latest
+    volumes:
+      - model-data:/app/lbnlp/models/pkg
+    environment:
+      - DOCKER=true
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8000/models/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   backend:
     container_name: backend
@@ -250,6 +250,7 @@ services:
     container_name: frontend
     build:
       context: ../frontend/icam-materials-database
+      dockerfile: Dockerfile.prod
       args:
         VITE_BACKEND_URL: ${VITE_BACKEND_URL}
     image: vikrampen/icam-frontend:latest
@@ -261,3 +262,8 @@ services:
     restart: always
     ports:
       - 80:80
+      - 443:443
+    volumes:
+      - nginx_secrets:/etc/letsencrypt
+    environment:
+      - CERTBOT_EMAIL=vikram.penumarti@gmail.com

@@ -54,53 +54,6 @@ except redis.exceptions.ConnectionError:
     redis_success = False
 
 
-@app.before_request
-def require_api_key() -> tuple[Response, int] | None:
-    if request.endpoint == "health":
-        return None
-
-    if request.method == "OPTIONS" and DOCKER != "true":
-        return _cors_preflight_response()
-
-    auth_response = check_api_key(request)
-    if auth_response is not None:
-        return auth_response
-
-    return None
-
-
-def _cors_preflight_response():
-    """Handles CORS preflight OPTIONS requests."""
-    response = jsonify({"success": True})
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    response.headers.add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-    response.headers.add("Access-Control-Allow-Headers", "Authorization, Content-Type")
-    return response
-
-
-def check_api_key(request):
-    expected_api_key = os.getenv("SERVER_API_KEY")
-
-    if not expected_api_key:
-        return jsonify(
-            {"success": False, "error": "Missing API_KEY in environment"}
-        ), 404
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify(
-            {"success": False, "error": "Invalid or missing Bearer token"}
-        ), 401
-
-    provided_api_key = auth_header.split("Bearer ")[1]
-
-    if provided_api_key != expected_api_key:
-        return jsonify({"success": False, "error": "Invalid API key"}), 403
-
-    return None
-
-
 def get_embedding(text: str):  # type: ignore
     return model.encode(text)
 

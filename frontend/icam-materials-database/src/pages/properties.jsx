@@ -90,7 +90,6 @@ function Table({ searchParams, setSearchParams, setPrevUrl, setPaperToUse }) {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				Authorization: `Bearer ${import.meta.env.VITE_API_KEY}`,
 			},
 			body: JSON.stringify({
 				page: page,

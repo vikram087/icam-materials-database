@@ -35,7 +35,6 @@ Clone the repository containing the script code, then navigate to the `scripts` 
    API_KEY=your-es-api-key
    DOCKER=false
    INDEX=search-papers-meta
-   MODELS_API_KEY=your-models-api-key
 
    ## DEV
 
