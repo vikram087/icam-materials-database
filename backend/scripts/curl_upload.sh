@@ -37,6 +37,7 @@ fi
 # User inputs (Optional)
 FILE_NAME=${1:-$DEFAULT_FILE}
 API_KEY_INPUT=${2:-$API_KEY}
+INDEX_NAME=${3:-$INDEX}
 
 if [[ -z "$API_KEY_INPUT" ]]; then
     echo "Error: API_KEY not set in .env and not provided as an argument"
@@ -80,7 +81,7 @@ done
 # if you want to use reverse proxy on dev with self-signed certs
 # remove --cacert flag and replace with -k flag
 echo -e "\nChecking document count...\n"
-curl --cacert "$SCRIPT_DIR/ca.crt" -X GET "$ES_URL/search-papers-meta/_count?pretty" \
+curl --cacert "$SCRIPT_DIR/ca.crt" -X GET "$ES_URL/$INDEX_NAME/_count?pretty" \
      -H "Authorization: ApiKey $API_KEY_INPUT"
 
 echo "Bulk upload completed successfully!"
